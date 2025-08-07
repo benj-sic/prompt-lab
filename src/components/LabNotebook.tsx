@@ -92,16 +92,10 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
 **Total Runs:** ${experiment.runs.length}
 **Objective:** ${experiment.hypothesis || experiment.objective || 'Not specified'}`;
 
-    // Add Key Findings
-    if (experiment.analysis?.keyFindings && experiment.analysis.keyFindings.length > 0) {
-      report += `\n\n## Key Findings\n\n`;
-      report += experiment.analysis.keyFindings.map(finding => `• ${finding}`).join('\n');
-    }
-
-    // Add Recommendations
-    if (experiment.analysis?.recommendations && experiment.analysis.recommendations.length > 0) {
-      report += `\n\n## Recommendations\n\n`;
-      report += experiment.analysis.recommendations.map(rec => `• ${rec}`).join('\n');
+        // Add Insights & Recommendations
+    if (experiment.analysis?.insights && experiment.analysis.insights.length > 0) {
+      report += `\n\n## Insights & Recommendations\n\n`;
+      report += experiment.analysis.insights.map(insight => `• ${insight}`).join('\n');
     }
 
     // Add Comparisons
@@ -310,34 +304,17 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
                 </div>
               </div>
               
-              {/* Key Findings */}
-              {experiment.analysis?.keyFindings && experiment.analysis.keyFindings.length > 0 && (
+              {/* Insights & Recommendations */}
+              {experiment.analysis?.insights && experiment.analysis.insights.length > 0 && (
                 <div className="mt-4">
                   <h4 className="font-medium text-weave-light-primary dark:text-weave-dark-primary mb-2">
-                    Key Findings
+                    Insights & Recommendations
                   </h4>
                   <ul className="text-sm text-weave-light-secondary dark:text-weave-dark-secondary space-y-1">
-                    {experiment.analysis.keyFindings.map((finding, index) => (
+                    {experiment.analysis.insights.map((insight, index) => (
                       <li key={index} className="flex items-start">
                         <span className="mr-2">•</span>
-                        <span>{finding}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {/* Recommendations */}
-              {experiment.analysis?.recommendations && experiment.analysis.recommendations.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="font-medium text-weave-light-primary dark:text-weave-dark-primary mb-2">
-                    Recommendations
-                  </h4>
-                  <ul className="text-sm text-weave-light-secondary dark:text-weave-dark-secondary space-y-1">
-                    {experiment.analysis.recommendations.map((recommendation, index) => (
-                      <li key={index} className="flex items-start">
-                        <span className="mr-2">•</span>
-                        <span>{recommendation}</span>
+                        <span>{insight}</span>
                       </li>
                     ))}
                   </ul>

@@ -41,8 +41,7 @@ export interface Experiment {
 
 export interface ExperimentAnalysis {
   runComparisons: RunComparison[];
-  keyFindings: string[];
-  recommendations: string[];
+  insights: string[];
   timestamp: number;
 }
 

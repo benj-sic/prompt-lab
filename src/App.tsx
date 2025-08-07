@@ -798,13 +798,12 @@ ${assembledPrompt}
 
 
 
-  const handleFinishSubmit = (entry: LabNotebookEntry, keyFindings: string, recommendations: string) => {
-    // Update the experiment with key findings and recommendations
+  const handleFinishSubmit = (entry: LabNotebookEntry, insights: string) => {
+    // Update the experiment with insights
     if (currentExperiment) {
       const updatedAnalysis: ExperimentAnalysis = {
         ...currentExperiment.analysis,
-        keyFindings: keyFindings.split('\n').filter(line => line.trim()),
-        recommendations: recommendations.split('\n').filter(line => line.trim()),
+        insights: insights.split('\n').filter(line => line.trim()),
         runComparisons: currentExperiment.analysis?.runComparisons || [],
         timestamp: Date.now()
       };
@@ -935,8 +934,7 @@ ${assembledPrompt}
         ) || []),
         newComparison
       ],
-      keyFindings: currentExperiment.analysis?.keyFindings || [],
-      recommendations: currentExperiment.analysis?.recommendations || [],
+      insights: currentExperiment.analysis?.insights || [],
       timestamp: Date.now()
     };
     

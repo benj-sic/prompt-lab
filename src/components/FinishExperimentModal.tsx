@@ -6,7 +6,7 @@ import { Experiment, LabNotebookEntry } from '../types';
 interface FinishExperimentModalProps {
   isVisible: boolean;
   experiment: Experiment;
-  onFinish: (entry: LabNotebookEntry, keyFindings: string, recommendations: string) => void;
+  onFinish: (entry: LabNotebookEntry, insights: string) => void;
   onCancel: () => void;
 }
 
@@ -16,8 +16,7 @@ export const FinishExperimentModal: React.FC<FinishExperimentModalProps> = ({
   onFinish,
   onCancel,
 }) => {
-  const [keyFindings, setKeyFindings] = useState('');
-  const [recommendations, setRecommendations] = useState('');
+  const [insights, setInsights] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -63,11 +62,8 @@ ${evaluation ? `**Evaluation:**
 - **Objective:** ${experiment.hypothesis || experiment.description || 'Not specified'}
 
 ## Analysis Results
-**Key Findings:**
-${keyFindings || 'No key findings provided'}
-
-**Recommendations:**
-${recommendations || 'No recommendations provided'}
+**Insights & Recommendations:**
+${insights || 'No insights provided'}
 
 ## Experiment Notes
 ${experiment.notes || 'No observations recorded'}
@@ -86,7 +82,7 @@ ${generateRunsSection()}`;
       relatedExperiments: [experiment.id],
     };
 
-    onFinish(entry, keyFindings, recommendations);
+    onFinish(entry, insights);
     setIsSubmitting(false);
   };
 
@@ -131,31 +127,17 @@ ${generateRunsSection()}`;
               </div>
             </div>
 
-            {/* Key Findings */}
+            {/* Insights & Recommendations */}
             <div>
               <label className="block text-sm font-medium text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
-                Key Findings <span className="text-red-500">*</span>
+                Insights & Recommendations <span className="text-red-500">*</span>
               </label>
               <textarea
-                value={keyFindings}
-                onChange={(e) => setKeyFindings(e.target.value)}
-                rows={4}
+                value={insights}
+                onChange={(e) => setInsights(e.target.value)}
+                rows={6}
                 className="w-full px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-weave-light-accent dark:focus:ring-weave-dark-accent bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText resize-none"
-                placeholder="What were the main insights from this experiment? What worked well and what didn't?"
-              />
-            </div>
-
-            {/* Recommendations */}
-            <div>
-              <label className="block text-sm font-medium text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
-                Recommendations <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={recommendations}
-                onChange={(e) => setRecommendations(e.target.value)}
-                rows={4}
-                className="w-full px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-weave-light-accent dark:focus:ring-weave-dark-accent bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText resize-none"
-                placeholder="What would you do differently next time? What follow-up experiments should be conducted?"
+                placeholder="What were the main insights from this experiment? What worked well, what didn't, and what would you do differently next time?"
               />
             </div>
           </div>
@@ -170,9 +152,9 @@ ${generateRunsSection()}`;
             </button>
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting || !keyFindings.trim() || !recommendations.trim()}
+              disabled={isSubmitting || !insights.trim()}
               className={`flex items-center space-x-2 px-6 py-2 rounded-lg transition-all duration-300 ${
-                isSubmitting || !keyFindings.trim() || !recommendations.trim()
+                isSubmitting || !insights.trim()
                   ? 'bg-weave-light-secondary dark:bg-weave-dark-secondary cursor-not-allowed opacity-50'
                   : 'bg-weave-light-accent dark:bg-weave-dark-accent hover:bg-weave-light-accentMuted dark:hover:bg-weave-dark-accentMuted text-white'
               }`}
