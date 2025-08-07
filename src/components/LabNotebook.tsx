@@ -8,7 +8,6 @@ import {
   Play,
   Clock,
   FileText,
-  GitBranch,
   Calendar,
   Target,
   ChevronRight,
