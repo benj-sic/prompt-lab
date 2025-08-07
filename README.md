@@ -1,160 +1,158 @@
 # Prompt Lab
 
-A focused internal tool for prompt engineers to run experiments, track changes, and build a personal prompt engineering playbook.
-
-## 🎯 **Purpose**
-
-This tool is designed for **prompt engineers** to:
-
-- **Run prompt experiments**: Test different prompts and see outputs
-- **Track changes**: Document what changed, why, and whether it improved results
-- **Build a playbook**: Save useful insights as reusable strategies, templates, and rules
-- **Iterate quickly**: Focus on speed of iteration and clarity of logging
+A powerful prompt engineering experimentation tool that helps you build, test, and iterate on AI prompts systematically.
 
 ## Features
 
-- **Modular Prompt Builder**: Build prompts using component-based blocks (Task, Persona, Context, Constraints, Examples, Format, Instructions)
-- **Block-level Change Tracking**: Track which blocks were added, removed, or modified between experiments
-- **Collapsible Block Sections**: Organize prompt components with expandable/collapsible sections
-- **Real-time Prompt Assembly**: See the final assembled prompt as you build it
-- **Change Tracking**: Log what changed, why, and the impact
-- **Experiment History**: View all past experiments with context and block-level diffs
-- **Lab Notebook**: Save insights as hypotheses, observations, methodologies, failure analysis, or insights
-- **Quick Add to Lab Notebook**: One-click saving of experiment insights
-- **Free API Support**: Gemini API with free tier for unlimited experimentation
-- **Export/Import**: Backup and share your experiments and lab notebook
+### Experiment Workflow
+- **Build**: Start by building your prompt using modular components (Task, Persona, Context, Constraints, Examples, Format, Instructions)
+- **Run**: Execute your prompt and see the AI output in real-time
+- **Evaluate**: Rate and assess each run with detailed feedback and observations
+- **Iterate**: Make changes and run again to see how modifications affect output
+- **Compare**: Analyze differences between runs to understand the impact of changes
+- **Save**: Store all experiments in your lab notebook for future reference
+
+### Key Improvements
+
+#### Simplified Interface
+- **Less Prominent Demo**: Demo button is now subtle colored text instead of a prominent button
+- **Unified Components**: All prompt components (core and advanced) are now in one section
+- **Streamlined Parameters**: Model parameters are collapsible and always accessible
+
+#### Improved Workflow
+1. **Start with Building**: The workflow begins with prompt construction
+2. **Clear Run Button**: "Run Experiment" button appears when you have valid prompt content
+3. **Output Display**: Results appear immediately after running
+4. **Evaluation Step**: After output, an evaluation section appears for scoring and notes
+5. **Next Run**: "Next Run" button clears the screen and saves the current run to history
+6. **Iteration**: You can modify one variable at a time and run again
+7. **Comparison**: Compare two runs side-by-side with highlighted differences
+8. **Sidebar History**: All runs are saved as sidebar items/tabs
+9. **Experiment Completion**: Finish experiments and save to lab notebook
+
+#### Enhanced Evaluation
+- **5-Star Rating System**: Rate each run from 1-5 stars
+- **Quality Assessment**: Categorize as Excellent, Good, Fair, or Poor
+- **Detailed Observations**: Add comprehensive notes about each run
+- **Tagging System**: Add custom tags to categorize and organize runs
+- **Visual Feedback**: See evaluation summaries in the run history
+
+#### Smart Comparison
+- **Similarity Scoring**: Automatic calculation of output similarity
+- **Parameter Tracking**: Highlight changes in temperature, tokens, and model
+- **Difference Analysis**: Identify unique words and phrases between runs
+- **Insight Generation**: Automatic analysis of what the differences mean
+
+### Technical Features
+
+- **Modular Prompt Building**: Break down prompts into logical components
+- **Real-time API Integration**: Direct connection to Gemini API
+- **Persistent Storage**: All experiments saved locally
+- **Dark/Light Theme**: Toggle between themes for comfortable use
+- **Responsive Design**: Works on desktop and mobile devices
+- **Export/Import**: Share experiments with others
 
 ## Getting Started
 
-### Prerequisites
+1. **Setup API Key**: Follow the [API Setup](#api-setup) instructions above
+2. **Load Demo**: Click "Load demo prompt" to see a working example
+3. **Build Your Prompt**: Use the modular components to construct your prompt
+4. **Run Experiment**: Click "Run Experiment" to test your prompt
+5. **Evaluate Results**: Rate and add notes about the output
+6. **Iterate**: Make changes and run again to see improvements
+7. **Compare Runs**: Use the comparison tool to analyze differences
+8. **Save to Notebook**: Complete experiments are saved to your lab notebook
 
-- Node.js (v14 or higher)
-- npm or yarn
+## Workflow Example
 
-### Installation
+1. **Build**: Create a prompt with Task, Persona, and Context components
+2. **Run**: Execute and see the AI response
+3. **Evaluate**: Rate 4/5 stars, mark as "Good", add notes about tone
+4. **Iterate**: Change the Persona component to be more specific
+5. **Run Again**: Execute the modified prompt
+6. **Compare**: See how the more specific persona changed the output
+7. **Evaluate**: Rate the new run and note improvements
+8. **Finish**: Save the experiment to your lab notebook
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd prompt-lab
-```
+## API Setup
 
-2. Install dependencies:
-```bash
-npm install
-```
+This app requires a Gemini API key to run experiments. Here's how to set it up:
 
-3. **Set up API keys** (choose one method):
+### Option 1: Environment Variables (Recommended)
+1. Copy `env.example` to `.env` in the project root
+2. Get your free API key from [Google AI Studio](https://aistudio.google.com/)
+3. Add your API key to the `.env` file:
+   ```
+   REACT_APP_GEMINI_API_KEY=your_api_key_here
+   ```
+4. Restart the development server
 
-#### Option A: Secure .env File (Recommended)
-```bash
-# Copy the example file
-cp env.example .env
+### Option 2: Settings Panel
+1. Run the app and click the "Settings" button
+2. Enter your Gemini API key
+3. The key will be saved locally
 
-# Edit .env and add your API keys
-REACT_APP_GEMINI_API_KEY=your_gemini_api_key_here
-```
-
-#### Option B: Browser Storage (Quick Start)
-- Start the app and add keys through the Settings panel
-- Keys are stored in your browser's localStorage
-
-4. Start the development server:
-```bash
-npm start
-```
-
-The application will open at `http://localhost:3000`.
-
-## API Key Setup
-
-### Getting Free Gemini API Key
-1. Visit [Google AI Studio](https://aistudio.google.com/)
+### Getting Your API Key
+1. Go to [Google AI Studio](https://aistudio.google.com/)
 2. Sign in with your Google account
-3. Create a new API key (free tier)
-4. Copy the key (starts with `AIza...`)
+3. Click "Get API key" in the top right
+4. Create a new API key or use an existing one
+5. Copy the key and add it to your `.env` file
 
-## Usage
-
-### Basic Workflow
-
-1. **Build a prompt**: Use the modular prompt builder with collapsible blocks
-   - **Core Components**: Task (required), Persona, Context, Constraints
-   - **Advanced Components**: Examples, Output Format, Instruction Style
-2. **Toggle blocks**: Include/exclude specific components as needed
-3. **Preview assembly**: See the final assembled prompt in real-time
-4. **Add context**: Document your goal and requirements in the notes
-5. **Run experiment**: Generate output and see results
-6. **Track changes**: Block-level diffs show what was added, removed, or modified
-7. **Save insights**: Add useful discoveries to your lab notebook
-8. **Iterate**: Continue refining based on what you learn
-
-### Experiment Management
-
-- **View History**: All experiments are automatically saved with block-level metadata
-- **Select Previous**: Click on any experiment to load its parameters and block states
-- **Block-level Diffs**: See exactly which prompt components were added, removed, or modified
-- **Track Changes**: When modifying a prompt, document the changes and their impact
-- **Add to Lab Notebook**: Quick buttons to save insights with different categories
-- **Export Data**: Download all experiments as JSON with complete block information
-
-### Lab Notebook Categories
-
-- **Hypotheses**: Testable assumptions about prompt engineering
-- **Observations**: Empirical findings from experiments
-- **Methodologies**: Systematic approaches and frameworks
-- **Failure Analysis**: What didn't work and why
-- **Insights**: General observations and learnings
-
-## Project Structure
-
-```
-src/
-├── components/          # React components
-│   ├── PromptBuilder.tsx
-│   ├── OutputDisplay.tsx
-│   ├── ExperimentNotes.tsx
-│   ├── ExperimentHistory.tsx
-│   ├── LabNotebook.tsx
-│   └── ChangeImpactForm.tsx
-├── services/           # Business logic
-│   ├── api.ts         # API service for LLM calls
-│   └── storage.ts     # Local storage management
-├── types/             # TypeScript interfaces
-│   └── index.ts
-├── App.tsx           # Main application component
-└── index.tsx         # Application entry point
-```
-
-## Technologies Used
-
-- **React 18**: Modern React with hooks
-- **TypeScript**: Type-safe development
-- **Tailwind CSS**: Utility-first CSS framework
-- **Google Generative AI**: Official Gemini API client
-- **Lucide React**: Beautiful icons
-- **LocalStorage**: Client-side data persistence
+**Note**: The free tier includes 15 requests per minute and 1500 requests per day.
 
 ## Development
 
-### Available Scripts
+```bash
+npm install
+npm start
+```
 
-- `npm start`: Start development server
-- `npm run build`: Build for production
-- `npm test`: Run tests
-- `npm run eject`: Eject from Create React App
+The app will open at `http://localhost:3000`
 
-## Why This Matters
+## Project Structure
 
-This version of Prompt Lab becomes your personal tool for:
+### Core Components
+- `App.tsx`: Main application component with workflow management
+- `PromptBuilder.tsx`: Modular prompt construction interface
+- `DualPaneRunComparison.tsx`: Side-by-side run comparison tool
+- `ExperimentTreeVisualization.tsx`: Visual experiment branching tree
+- `LabNotebook.tsx`: Experiment history and management
+- `ApiErrorDisplay.tsx`: Error handling and API status display
 
-- **Understanding what makes prompts work**: Track changes and their impact
-- **Building better templates faster**: Save successful patterns
-- **Documenting reusable insights**: Build your personal knowledge base
-- **Iterating efficiently**: Focus on speed and clarity
+### Services
+- `api.ts`: Gemini API integration and experiment execution
+- `storage.ts`: Local storage management for experiments and settings
 
-Perfect for use on projects where prompt design is iterative and high-impact.
+### Utilities
+- `demoPrompts.ts`: Pre-built demo prompts for quick testing
 
-## License
+### Documentation
+- `README.md`: Main project documentation
+- `SETUP.md`: Quick setup guide
+- `DEMO_EXAMPLES.md`: Detailed workflow examples
+- `BRANCHING_FEATURES_GUIDE.md`: Branching feature documentation
 
-MIT License - see LICENSE file for details.
+## Recent Cleanup
+
+The codebase has been cleaned up to remove unused components and improve maintainability:
+
+### Removed Unused Components
+- `ExperimentHistory.tsx`: Replaced by integrated LabNotebook
+- `EnhancedRunComparison.tsx`: Functionality merged into DualPaneRunComparison
+- `ExperimentLabNotebookEntry.tsx`: Integrated into LabNotebook
+- `OutputDisplay.tsx`: Replaced by inline output display
+- `RunComparison.tsx`: Replaced by DualPaneRunComparison
+- `ExperimentNotes.tsx`: Integrated into evaluation workflow
+- `ForkRunModal.tsx`: Functionality moved to DualPaneRunComparison
+- `ForkSelectionModal.tsx`: Integrated into DualPaneRunComparison
+- `ParameterControls.tsx`: Replaced by IterationParameterControls
+- `ExperimentRuns.tsx`: Integrated into LabNotebook
+- `PromptInput.tsx`: Replaced by PromptBuilder
+
+### Removed Unused Utilities
+- `experimentTree.ts`: Tree logic integrated into ExperimentTreeVisualization
+- `theme.ts`: Theme management moved to ThemeContext
+
+### Maintained Components
+All remaining components are actively used and essential to the application workflow.

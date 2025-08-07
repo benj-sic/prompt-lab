@@ -1,6 +1,6 @@
 # Quick Setup Guide
 
-## 🚀 Get Started in 5 Minutes
+## Get Started in 5 Minutes
 
 ### Step 1: Get Your Free API Key
 1. **Visit Google AI Studio**: [https://aistudio.google.com/](https://aistudio.google.com/)
@@ -32,23 +32,23 @@ REACT_APP_GEMINI_API_KEY=AIza...your_actual_key_here
 4. **Rate responses** to improve future recommendations
 5. **Document insights** in the lab notebook
 
-## 🔐 Security Options
+## Security Options
 
-### 🔒 .env File (Most Secure)
+### .env File (Most Secure)
 - **Best for**: Production, shared computers, security-conscious users
 - **Setup**: Create `.env` file with your keys
 - **Security**: Keys never stored in browser
 - **Pros**: Industry standard, more secure
 - **Cons**: Requires file setup
 
-### 🔑 Browser Storage (Quick Start)
+### Browser Storage (Quick Start)
 - **Best for**: Quick testing, personal use, learning
 - **Setup**: Add keys through the app interface
 - **Security**: Keys stored in browser localStorage
 - **Pros**: No setup required, works immediately
 - **Cons**: Keys visible in browser dev tools
 
-## 🎯 What You Can Do
+## What You Can Do
 
 ### Experiment with Prompts
 - **Visual Prompt Builder**: Drag and drop prompt parts
@@ -68,7 +68,7 @@ REACT_APP_GEMINI_API_KEY=AIza...your_actual_key_here
 - **Export/Import**: Backup and share your experiments
 - **Free API**: Use Gemini's free tier for unlimited experiments
 
-## 🆘 Need Help?
+## Need Help?
 
 ### Common Issues
 1. **"No API key" error**: Add your Gemini API key in Settings
@@ -85,8 +85,8 @@ REACT_APP_GEMINI_API_KEY=AIza...your_actual_key_here
 - **Issues**: Create an issue on GitHub
 - **Questions**: The app includes built-in help and examples
 
-## 🎉 You're Ready!
+## You're Ready!
 
 Start experimenting with AI prompts, track your progress, and build your prompt engineering skills. The app learns from your feedback to provide better suggestions over time.
 
-Happy prompting! 🚀 
+Happy prompting! 

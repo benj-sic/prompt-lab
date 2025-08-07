@@ -61,7 +61,7 @@ export const ChangeImpactForm: React.FC<ChangeImpactFormProps> = ({
               onChange={(e) => setFormData({ ...formData, whatChanged: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               rows={3}
-              placeholder="Describe the specific changes made to the prompt..."
+              placeholder="Describe the specific changes you made to the prompt..."
               required
             />
           </div>
@@ -75,7 +75,7 @@ export const ChangeImpactForm: React.FC<ChangeImpactFormProps> = ({
               onChange={(e) => setFormData({ ...formData, whyChanged: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               rows={2}
-              placeholder="What problem were you trying to solve?"
+              placeholder="Explain what problem or issue you were trying to solve..."
               required
             />
           </div>

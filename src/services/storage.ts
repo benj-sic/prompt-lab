@@ -2,7 +2,7 @@ import { Experiment, ExperimentLog, LabNotebookEntry, LabNotebookLog } from '../
 
 const STORAGE_KEY = 'prompt-lab-experiments';
 const API_KEYS_KEY = 'prompt-lab-api-keys';
-const PLAYBOOK_KEY = 'prompt-lab-playbook';
+const HANDBOOK_KEY = 'prompt-lab-handbook';
 
 export interface ApiKeys {
   gemini?: string;
@@ -12,7 +12,17 @@ export class StorageService {
   static saveExperiment(experiment: Experiment): void {
     try {
       const existing = this.loadExperiments();
-      existing.experiments.push(experiment);
+      
+      // Check if experiment already exists and update it, otherwise add new
+      const existingIndex = existing.experiments.findIndex(exp => exp.id === experiment.id);
+      if (existingIndex >= 0) {
+        // Update existing experiment
+        existing.experiments[existingIndex] = experiment;
+      } else {
+        // Add new experiment
+        existing.experiments.push(experiment);
+      }
+      
       existing.lastUpdated = Date.now();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
     } catch (error) {
@@ -38,10 +48,16 @@ export class StorageService {
 
   static deleteExperiment(id: string): void {
     try {
+      console.log('StorageService: Deleting experiment with ID:', id);
       const existing = this.loadExperiments();
+      console.log('StorageService: Found', existing.experiments.length, 'experiments before delete');
+      
       existing.experiments = existing.experiments.filter(exp => exp.id !== id);
+      console.log('StorageService: Found', existing.experiments.length, 'experiments after delete');
+      
       existing.lastUpdated = Date.now();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+      console.log('StorageService: Successfully saved to localStorage');
     } catch (error) {
       console.error('Failed to delete experiment:', error);
     }
@@ -154,7 +170,7 @@ export class StorageService {
       }
       
       existing.lastUpdated = Date.now();
-      localStorage.setItem(PLAYBOOK_KEY, JSON.stringify(existing));
+      localStorage.setItem(HANDBOOK_KEY, JSON.stringify(existing));
     } catch (error) {
       console.error('Failed to save lab notebook entry:', error);
     }
@@ -162,7 +178,7 @@ export class StorageService {
 
   static loadLabNotebookEntries(): LabNotebookLog {
     try {
-      const stored = localStorage.getItem(PLAYBOOK_KEY);
+      const stored = localStorage.getItem(HANDBOOK_KEY);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -181,7 +197,7 @@ export class StorageService {
       const existing = this.loadLabNotebookEntries();
       existing.entries = existing.entries.filter(entry => entry.id !== id);
       existing.lastUpdated = Date.now();
-      localStorage.setItem(PLAYBOOK_KEY, JSON.stringify(existing));
+      localStorage.setItem(HANDBOOK_KEY, JSON.stringify(existing));
     } catch (error) {
       console.error('Failed to delete lab notebook entry:', error);
     }
@@ -196,7 +212,7 @@ export class StorageService {
     try {
       const data = JSON.parse(jsonData);
       if (data.entries && Array.isArray(data.entries)) {
-        localStorage.setItem(PLAYBOOK_KEY, jsonData);
+        localStorage.setItem(HANDBOOK_KEY, jsonData);
         return true;
       }
     } catch (error) {

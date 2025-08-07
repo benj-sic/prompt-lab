@@ -1,222 +1,316 @@
-import React, { useState } from 'react';
-import { Star, Tag, MessageSquare, ThumbsUp, ThumbsDown } from 'lucide-react';
-import { ExperimentEvaluation as Evaluation } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FileText, GitCompare, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import { ExperimentRun, ExperimentEvaluation as EvaluationType, Experiment } from '../types';
+import { PromptDiff } from './PromptDiff';
+import { OutputComparison } from './OutputComparison';
 
 interface ExperimentEvaluationProps {
-  experimentId: string;
-  output: string;
-  onSaveEvaluation: (evaluation: Evaluation) => void;
-  existingEvaluation?: Evaluation;
+  run: ExperimentRun;
+  experiment: Experiment;
+  onSaveEvaluation: (evaluation: EvaluationType) => void;
+  onNextRun: () => void;
+  onResetToOriginal?: () => void;
+  originalPrompt?: string;
+  onFeedbackChange?: (feedback: string) => void;
+  initialFeedback?: string;
 }
 
-const QUALITY_OPTIONS = [
-  { value: 'excellent', label: 'Excellent', color: 'text-green-600', bgColor: 'bg-green-100' },
-  { value: 'good', label: 'Good', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  { value: 'fair', label: 'Fair', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
-  { value: 'poor', label: 'Poor', color: 'text-red-600', bgColor: 'bg-red-100' },
-] as const;
-
-const COMMON_TAGS = [
-  'accurate', 'helpful', 'creative', 'detailed', 'concise', 
-  'relevant', 'insightful', 'well-structured', 'original', 'practical'
-];
-
 export const ExperimentEvaluation: React.FC<ExperimentEvaluationProps> = ({
-  experimentId,
-  output,
+  run,
+  experiment,
   onSaveEvaluation,
-  existingEvaluation,
+  onNextRun,
+  onResetToOriginal,
+  originalPrompt,
+  onFeedbackChange,
+  initialFeedback = '',
 }) => {
-  const [rating, setRating] = useState(existingEvaluation?.rating || 0);
-  const [quality, setQuality] = useState<Evaluation['quality']>(existingEvaluation?.quality || 'good');
-  const [feedback, setFeedback] = useState(existingEvaluation?.feedback || '');
-  const [tags, setTags] = useState<string[]>(existingEvaluation?.tags || []);
-  const [newTag, setNewTag] = useState('');
+  const [feedback, setFeedback] = useState(initialFeedback);
 
-  const handleSave = () => {
-    const evaluation: Evaluation = {
-      rating,
-      quality,
-      feedback,
-      tags,
-      timestamp: Date.now(),
-    };
-    onSaveEvaluation(evaluation);
-  };
+  const [highlightedChanges, setHighlightedChanges] = useState<string[]>([]);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    comparison: true,
+    prompts: false,
+    observations: true,
+  });
+  const [showPromptDiff, setShowPromptDiff] = useState(false);
 
-  const handleTagToggle = (tag: string) => {
-    setTags(prev => 
-      prev.includes(tag) 
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
-    );
-  };
+  const feedbackRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleAddTag = () => {
-    if (newTag.trim() && !tags.includes(newTag.trim())) {
-      setTags(prev => [...prev, newTag.trim()]);
-      setNewTag('');
+  // Auto-detect changes and highlight them
+  useEffect(() => {
+    if (experiment.runs.length > 1) {
+      const previousRun = experiment.runs[experiment.runs.length - 2];
+      const changes = [];
+      
+      if (run.temperature !== previousRun.temperature) {
+        changes.push(`Temperature changed from ${previousRun.temperature} to ${run.temperature}`);
+      }
+      if (run.maxTokens !== previousRun.maxTokens) {
+        changes.push(`Max tokens changed from ${previousRun.maxTokens} to ${run.maxTokens}`);
+      }
+      if (run.model !== previousRun.model) {
+        changes.push(`Model changed from ${previousRun.model} to ${run.model}`);
+      }
+      if (run.prompt !== previousRun.prompt) {
+        changes.push('Prompt content was modified');
+      }
+      
+      setHighlightedChanges(changes);
     }
+  }, [run, experiment]);
+
+
+
+  // Notify parent component of feedback changes
+  useEffect(() => {
+    onFeedbackChange?.(feedback);
+  }, [feedback, onFeedbackChange]);
+
+  const hasMultipleRuns = experiment.runs.length > 1;
+  const previousRun = experiment.runs.length > 1 ? experiment.runs[experiment.runs.length - 2] : null;
+  
+  // Determine current run number
+  const currentRunIndex = experiment.runs.findIndex(r => r.id === run.id);
+  const currentRunNumber = currentRunIndex + 1;
+
+
+
+
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
   };
 
-  const handleRemoveTag = (tagToRemove: string) => {
-    setTags(prev => prev.filter(tag => tag !== tagToRemove));
-  };
+
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-2">
-        <MessageSquare className="h-5 w-5 text-blue-600" />
-        <h3 className="text-lg font-medium text-gray-900">Evaluate Response</h3>
-      </div>
-
-      {/* Star Rating */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Overall Rating
-        </label>
-        <div className="flex space-x-1">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <button
-              key={star}
-              onClick={() => setRating(star)}
-              className={`p-1 transition-colors ${
-                star <= rating 
-                  ? 'text-yellow-500' 
-                  : 'text-gray-300 hover:text-yellow-400'
-              }`}
-            >
-              <Star className={`h-6 w-6 ${star <= rating ? 'fill-current' : ''}`} />
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-gray-500 mt-1">
-          {rating === 0 && 'Click to rate'}
-          {rating === 1 && 'Poor'}
-          {rating === 2 && 'Fair'}
-          {rating === 3 && 'Good'}
-          {rating === 4 && 'Very Good'}
-          {rating === 5 && 'Excellent'}
-        </p>
-      </div>
-
-      {/* Quality Assessment */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Quality Assessment
-        </label>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {QUALITY_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setQuality(option.value)}
-              className={`p-2 rounded-md border transition-colors ${
-                quality === option.value
-                  ? `${option.bgColor} ${option.color} border-current`
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <span className="text-sm font-medium">{option.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tags */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Tags
-        </label>
-        <div className="space-y-3">
-          {/* Common Tags */}
-          <div>
-            <p className="text-xs text-gray-500 mb-2">Common tags:</p>
-            <div className="flex flex-wrap gap-2">
-              {COMMON_TAGS.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => handleTagToggle(tag)}
-                  className={`px-2 py-1 text-xs rounded-full transition-colors ${
-                    tags.includes(tag)
-                      ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                      : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Custom Tags */}
-          <div>
-            <p className="text-xs text-gray-500 mb-2">Add custom tag:</p>
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-                placeholder="Enter custom tag..."
-                className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                onClick={handleAddTag}
-                className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-
-          {/* Selected Tags */}
-          {tags.length > 0 && (
-            <div>
-              <p className="text-xs text-gray-500 mb-2">Selected tags:</p>
-              <div className="flex flex-wrap gap-2">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center space-x-1 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full"
-                  >
-                    <span>{tag}</span>
-                    <button
-                      onClick={() => handleRemoveTag(tag)}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Feedback */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Detailed Feedback
-        </label>
-        <textarea
-          value={feedback}
-          onChange={(e) => setFeedback(e.target.value)}
-          placeholder="What worked well? What could be improved? Any specific observations..."
-          className="w-full h-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-        />
-      </div>
-
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          disabled={rating === 0}
-          className="px-4 py-2 bg-weave-light-accent dark:bg-weave-dark-accent text-white rounded-lg hover:bg-weave-light-accentMuted dark:hover:bg-weave-dark-accentMuted disabled:bg-weave-light-secondary disabled:cursor-not-allowed transition-colors"
+    <div className="space-y-4">
+      {/* Changes Highlight Banner */}
+      {highlightedChanges.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-l-4 border-blue-500 p-4 rounded-lg"
         >
-          Save Evaluation
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <h4 className="font-medium text-blue-800 dark:text-blue-200">Changes Detected</h4>
+            </div>
+            {onResetToOriginal && (
+              <button
+                onClick={onResetToOriginal}
+                className="flex items-center space-x-1 px-2 py-1 text-xs bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 rounded hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
+          <div className="mt-2 space-y-1">
+            {highlightedChanges.map((change, index) => (
+              <div key={index} className="text-sm text-blue-700 dark:text-blue-300 flex items-center space-x-2">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                <span>{change}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Side-by-Side Comparison */}
+      {hasMultipleRuns && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="bg-weave-light-surface dark:bg-weave-dark-surface border border-weave-light-border dark:border-weave-dark-border rounded-lg overflow-hidden"
+        >
+          <button
+            onClick={() => toggleSection('comparison')}
+            className="w-full flex items-center justify-between p-4 hover:bg-weave-light-accentMuted dark:hover:bg-weave-dark-accentMuted transition-colors"
+          >
+            <div className="flex items-center space-x-2">
+              <GitCompare className="h-4 w-4 text-weave-light-accent dark:text-weave-dark-accent" />
+              <span className="font-medium text-weave-light-primary dark:text-weave-dark-primary">
+                Output Comparison
+              </span>
+            </div>
+            {expandedSections.comparison ? (
+              <ChevronUp className="h-4 w-4 text-weave-light-secondary dark:text-weave-dark-secondary" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-weave-light-secondary dark:text-weave-dark-secondary" />
+            )}
+          </button>
+          
+          <AnimatePresence>
+            {expandedSections.comparison && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="border-t border-weave-light-border dark:border-weave-dark-border"
+              >
+                <div className="p-4">
+                  <OutputComparison
+                    run1={previousRun!}
+                    run2={run}
+                    run1Index={experiment.runs.length - 1}
+                    run2Index={experiment.runs.length}
+                    showDetails={true}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
+
+      {/* Prompt Diff Section */}
+      {originalPrompt && originalPrompt !== run.prompt && (
+        <PromptDiff
+          originalPrompt={originalPrompt}
+          currentPrompt={run.prompt}
+          showDiff={showPromptDiff}
+          onToggleDiff={() => setShowPromptDiff(!showPromptDiff)}
+          originalLabel={`Run 1 Prompt`}
+          currentLabel={`Run ${currentRunNumber} Prompt`}
+        />
+      )}
+
+      {/* Prompts Section */}
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        className="bg-weave-light-surface dark:bg-weave-dark-surface border border-weave-light-border dark:border-weave-dark-border rounded-lg overflow-hidden"
+      >
+        <button
+          onClick={() => toggleSection('prompts')}
+          className="w-full flex items-center justify-between p-4 hover:bg-weave-light-accentMuted dark:hover:bg-weave-dark-accentMuted transition-colors"
+        >
+          <div className="flex items-center space-x-2">
+            <FileText className="h-4 w-4 text-weave-light-accent dark:text-weave-dark-accent" />
+            <span className="font-medium text-weave-light-primary dark:text-weave-dark-primary">
+              Prompts & Outputs
+            </span>
+          </div>
+          {expandedSections.prompts ? (
+            <ChevronUp className="h-4 w-4 text-weave-light-secondary dark:text-weave-dark-secondary" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-weave-light-secondary dark:text-weave-dark-secondary" />
+          )}
         </button>
-      </div>
+        
+        <AnimatePresence>
+          {expandedSections.prompts && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="border-t border-weave-light-border dark:border-weave-dark-border"
+            >
+              <div className="p-4 space-y-4">
+                {/* Current Prompt */}
+                <div>
+                  <h5 className="text-sm font-medium text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
+                    Run {currentRunNumber} Prompt
+                  </h5>
+                  <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded p-3 max-h-32 overflow-y-auto">
+                    <div className="text-xs font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap">
+                      {run.prompt}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Original Prompt (if different) */}
+                {originalPrompt && originalPrompt !== run.prompt && (
+                  <div>
+                    <h5 className="text-sm font-medium text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
+                      Run 1 Prompt
+                    </h5>
+                    <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-3 max-h-32 overflow-y-auto">
+                      <div className="text-xs font-mono text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                        {originalPrompt}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Previous Prompt (if available) */}
+                {previousRun && previousRun.prompt !== run.prompt && (
+                  <div>
+                    <h5 className="text-sm font-medium text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
+                      Previous Prompt
+                    </h5>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-3 max-h-32 overflow-y-auto">
+                      <div className="text-xs font-mono text-blue-700 dark:text-blue-300 whitespace-pre-wrap">
+                        {previousRun.prompt}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* Observations Section */}
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        className="bg-weave-light-surface dark:bg-weave-dark-surface border border-weave-light-border dark:border-weave-dark-border rounded-lg overflow-hidden"
+      >
+        <button
+          onClick={() => toggleSection('observations')}
+          className="w-full flex items-center justify-between p-4 hover:bg-weave-light-accentMuted dark:hover:bg-weave-dark-accentMuted transition-colors"
+        >
+          <div className="flex items-center space-x-2">
+            <FileText className="h-4 w-4 text-weave-light-accent dark:text-weave-dark-accent" />
+            <span className="font-medium text-weave-light-primary dark:text-weave-dark-primary">
+              {hasMultipleRuns ? 'Observations & Notes' : 'Initial Observations & Notes'}
+            </span>
+          </div>
+          {expandedSections.observations ? (
+            <ChevronUp className="h-4 w-4 text-weave-light-secondary dark:text-weave-dark-secondary" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-weave-light-secondary dark:text-weave-dark-secondary" />
+          )}
+        </button>
+        
+        <AnimatePresence>
+          {expandedSections.observations && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="border-t border-weave-light-border dark:border-weave-dark-border"
+            >
+              <div className="p-4">
+                <label className="block text-sm font-medium text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
+                  What did you observe about this run? <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  ref={feedbackRef}
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder={hasMultipleRuns 
+                    ? "How did the changes affect the output? What improved or got worse? What would you change next?"
+                    : "Any insights, issues, or improvements to note? What worked well? What could be better?"
+                  }
+                  className="w-full h-32 px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-weave-light-accent dark:focus:ring-weave-dark-accent bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText resize-none"
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+
     </div>
   );
 }; 

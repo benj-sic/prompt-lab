@@ -11,6 +11,10 @@ export interface ExperimentRun {
   blockTweaks?: Record<string, string>; // Changes to specific blocks
   runNotes?: string;
   evaluation?: ExperimentEvaluation;
+  // Branching fields
+  parentRunId?: string; // ID of the run this was forked from
+  branchName?: string; // User-defined branch name (e.g., "temperature-experiment", "context-variations")
+  changeDescription?: string; // What changed from parent (e.g., "Increased temperature to 1.2")
 }
 
 export interface Experiment {
@@ -19,6 +23,7 @@ export interface Experiment {
   title: string;
   description: string;
   hypothesis: string;
+  objective?: string;
   runs: ExperimentRun[];
   notes: string;
   apiKey?: string;
@@ -47,12 +52,35 @@ export interface RunComparison {
   differences: string[];
   similarityScore: number;
   keyInsights: string[];
+  notes?: string;
 }
 
 export interface BlockChanges {
   added: string[];
   removed: string[];
   modified: string[];
+}
+
+// Branching system types
+export interface Branch {
+  name: string;
+  description?: string;
+  rootRunId: string; // The run this branch starts from
+  runs: string[]; // IDs of runs in this branch
+  isActive?: boolean;
+}
+
+export interface ExperimentTree {
+  experiment: Experiment;
+  branches: Branch[];
+  runTree: RunTreeNode[];
+}
+
+export interface RunTreeNode {
+  run: ExperimentRun;
+  children: RunTreeNode[];
+  depth: number;
+  branchColor?: string;
 }
 
 // New types for modular prompt building

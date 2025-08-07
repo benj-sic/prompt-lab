@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap } from 'lucide-react';
+import { Brain } from 'lucide-react';
 
 export const PageLoader: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -32,7 +32,7 @@ export const PageLoader: React.FC = () => {
               animate={{ rotate: 360 }}
               transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
             >
-              <Zap className="h-12 w-12 text-weave-light-accent dark:text-weave-dark-accent" />
+              <Brain className="h-12 w-12 text-weave-light-accent dark:text-weave-dark-accent" />
             </motion.div>
             <motion.h2
               className="text-2xl font-bold text-weave-light-primary dark:text-weave-dark-primary"
