@@ -296,11 +296,11 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
           {/* Content */}
           <div className="p-6 space-y-6">
             {/* Experiment Overview */}
-            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-700">
-              <h3 className="font-medium text-purple-800 dark:text-purple-200 mb-3">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-weave-light-primary dark:text-weave-dark-primary">
                 Experiment Overview
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
                   <p><strong>Title:</strong> {experiment.title || 'Untitled'}</p>
                   <p><strong>Date:</strong> {new Date(experiment.timestamp).toLocaleDateString()}</p>
@@ -313,14 +313,14 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
               
               {/* Key Findings */}
               {experiment.analysis?.keyFindings && experiment.analysis.keyFindings.length > 0 && (
-                <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
-                  <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">
+                <div className="mt-4">
+                  <h4 className="font-medium text-weave-light-primary dark:text-weave-dark-primary mb-2">
                     Key Findings
                   </h4>
-                  <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
+                  <ul className="text-sm text-weave-light-secondary dark:text-weave-dark-secondary space-y-1">
                     {experiment.analysis.keyFindings.map((finding, index) => (
                       <li key={index} className="flex items-start">
-                        <span className="text-green-600 dark:text-green-400 mr-2">•</span>
+                        <span className="mr-2">•</span>
                         <span>{finding}</span>
                       </li>
                     ))}
@@ -330,14 +330,14 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
               
               {/* Recommendations */}
               {experiment.analysis?.recommendations && experiment.analysis.recommendations.length > 0 && (
-                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                <div className="mt-4">
+                  <h4 className="font-medium text-weave-light-primary dark:text-weave-dark-primary mb-2">
                     Recommendations
                   </h4>
-                  <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                  <ul className="text-sm text-weave-light-secondary dark:text-weave-dark-secondary space-y-1">
                     {experiment.analysis.recommendations.map((recommendation, index) => (
                       <li key={index} className="flex items-start">
-                        <span className="text-blue-600 dark:text-blue-400 mr-2">•</span>
+                        <span className="mr-2">•</span>
                         <span>{recommendation}</span>
                       </li>
                     ))}
@@ -428,8 +428,8 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
                           </div>
 
                           {/* Prompt Differences */}
-                          <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-700">
-                            <h5 className="font-medium text-yellow-800 dark:text-yellow-200 mb-3">
+                          <div className="space-y-4">
+                            <h5 className="font-medium text-weave-light-primary dark:text-weave-dark-primary mb-3">
                               Prompt Differences
                             </h5>
                             {(() => {
@@ -437,23 +437,23 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
                               return differentComponents.length > 0 ? (
                                 <div className="space-y-4">
                                   {differentComponents.map((diff, index) => (
-                                    <div key={index} className="border border-yellow-200 dark:border-yellow-600 rounded-lg p-3">
-                                      <h6 className="text-sm font-medium text-yellow-700 dark:text-yellow-300 mb-2">
+                                    <div key={index} className="space-y-3">
+                                      <h6 className="text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary mb-2">
                                         {diff.component}
                                       </h6>
                                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                                         <div>
-                                          <p className="text-xs text-yellow-600 dark:text-yellow-400 mb-1">Run {comparison.run1Index}:</p>
-                                          <div className="bg-white dark:bg-gray-800 p-2 rounded border max-h-24 overflow-y-auto">
-                                            <pre className="text-xs font-mono text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+                                          <p className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary mb-1">Run {comparison.run1Index}:</p>
+                                          <div className="p-2 border border-weave-light-border dark:border-weave-dark-border rounded max-h-24 overflow-y-auto">
+                                            <pre className="text-xs font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words">
                                               {diff.run1Content}
                                             </pre>
                                           </div>
                                         </div>
                                         <div>
-                                          <p className="text-xs text-yellow-600 dark:text-yellow-400 mb-1">Run {comparison.run2Index}:</p>
-                                          <div className="bg-white dark:bg-gray-800 p-2 rounded border max-h-24 overflow-y-auto">
-                                            <pre className="text-xs font-mono text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+                                          <p className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary mb-1">Run {comparison.run2Index}:</p>
+                                          <div className="p-2 border border-weave-light-border dark:border-weave-dark-border rounded max-h-24 overflow-y-auto">
+                                            <pre className="text-xs font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words">
                                               {diff.run2Content}
                                             </pre>
                                           </div>
@@ -463,7 +463,7 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
                                   ))}
                                 </div>
                               ) : (
-                                <div className="text-center py-4 text-yellow-700 dark:text-yellow-300">
+                                <div className="text-center py-4 text-weave-light-secondary dark:text-weave-dark-secondary">
                                   <p className="text-sm">No differences found in prompt components</p>
                                 </div>
                               );
@@ -472,12 +472,12 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
 
                           {/* Comparison Notes */}
                           {comparison.existingComparison?.notes && (
-                            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
-                              <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                            <div className="space-y-3">
+                              <h5 className="font-medium text-weave-light-primary dark:text-weave-dark-primary mb-2">
                                 Comparison Notes
                               </h5>
-                              <div className="bg-white dark:bg-gray-800 p-3 rounded border">
-                                <p className="text-blue-700 dark:text-blue-300 text-sm">{comparison.existingComparison.notes}</p>
+                              <div className="p-3 border border-weave-light-border dark:border-weave-dark-border rounded">
+                                <p className="text-sm text-weave-light-secondary dark:text-weave-dark-secondary">{comparison.existingComparison.notes}</p>
                               </div>
                             </div>
                           )}
@@ -638,15 +638,6 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                       {experiment.title}
                     </h3>
-
-                    {experiment.version && (
-                      <div className="flex items-center space-x-1">
-                        <GitBranch className="h-3 w-3 text-blue-500" />
-                        <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                          {experiment.version}
-                        </span>
-                      </div>
-                    )}
                   </div>
 
                   {/* Experiment Meta */}

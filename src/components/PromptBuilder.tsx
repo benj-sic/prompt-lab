@@ -13,7 +13,7 @@ interface PromptBuilderProps {
   onBlockStatesChange?: (blockStates: PromptBlockState[]) => void;
   onParametersChange?: (params: { temperature: number; maxTokens: number; model: string }) => void;
   onResetBlockContent?: (blockId: string) => void;
-  onBlockChange?: (blockId: string) => void;
+  onBlockChange?: (blockId: string | null) => void;
   onParameterChange?: (parameter: string) => void;
   changedParameter?: string | null;
   changedBlock?: string | null;
@@ -235,7 +235,24 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
     );
     
     setBlockStates(updatedBlockStates);
-    onBlockChange?.(blockId);
+    
+    // Check if the content is identical to the baseline content
+    let baselineContent = '';
+    
+    // Determine baseline content based on the current context
+    if (previousExperiment?.blockContent?.[blockId]) {
+      baselineContent = previousExperiment.blockContent[blockId];
+    } else if (initialBlockStates) {
+      const initialBlock = initialBlockStates.find(block => block.id === blockId);
+      baselineContent = initialBlock?.content || '';
+    }
+    
+    // If content matches baseline, clear the changed block indicator
+    if (content === baselineContent) {
+      onBlockChange?.(null); // Clear the changed block indicator
+    } else {
+      onBlockChange?.(blockId); // Set the changed block indicator
+    }
     
     // Immediately notify parent of the updated block states
     onBlockStatesChange?.(updatedBlockStates);

@@ -578,7 +578,7 @@ ${assembledPrompt}
     setChangedParameter(null);
   }, [lastRunParameters]);
 
-  const handleBlockChange = useCallback((blockId: string) => {
+  const handleBlockChange = useCallback((blockId: string | null) => {
     setChangedBlock(blockId);
     setChangedParameter(null); // Clear any parameter changes when block is changed
   }, []);
@@ -717,7 +717,7 @@ ${assembledPrompt}
     }
     
     if (changes.length === 0) {
-      return { canRun: false, reason: 'At least one parameter must be changed before running', changes };
+      return { canRun: false, reason: '', changes };
     }
 
     return { canRun: true, reason: '', changes };
@@ -1482,7 +1482,7 @@ ${assembledPrompt}
                 ) : (
                   <>
                     <ArrowRight className="h-5 w-5" />
-                    <span>Next Run</span>
+                    <span>Iterate</span>
                   </>
                 )}
               </button>
