@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain } from 'lucide-react';
 
 export const PageLoader: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -32,7 +31,11 @@ export const PageLoader: React.FC = () => {
               animate={{ rotate: 360 }}
               transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
             >
-              <Brain className="h-12 w-12 text-weave-light-accent dark:text-weave-dark-accent" />
+              <svg width="64" height="64" viewBox="0 0 64 64" className="logo-svg">
+                <rect width="64" height="64" fill="var(--weave-background)" rx="4" ry="4"/>
+                <rect x="4" y="4" width="56" height="56" fill="none" stroke="var(--weave-accent)" stroke-width="3" rx="2" ry="2"/>
+                <text x="32" y="32" font-family="Inter, Arial, sans-serif" font-size="24" fill="var(--weave-accent)" font-weight="bold" text-anchor="middle" dominant-baseline="middle">PL</text>
+              </svg>
             </motion.div>
             <motion.h2
               className="text-2xl font-bold text-weave-light-primary dark:text-weave-dark-primary"

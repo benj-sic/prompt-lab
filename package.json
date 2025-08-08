@@ -25,7 +25,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "generate-logos": "node scripts/generate-logos.js"
   },
   "eslintConfig": {
     "extends": [
@@ -50,6 +51,7 @@
     "autoprefixer": "^10.4.21",
     "jsdom-testing-mocks": "^1.15.2",
     "postcss": "^8.5.6",
+    "sharp": "^0.34.3",
     "tailwindcss": "^3.4.17"
   }
 }

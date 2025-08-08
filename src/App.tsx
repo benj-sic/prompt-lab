@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, BookOpen, FlaskConical, Play, TrendingUp, ArrowRight, ArrowLeft, GitBranch } from 'lucide-react';
+import { BookOpen, FlaskConical, Play, TrendingUp, ArrowRight, ArrowLeft, GitBranch } from 'lucide-react';
 import { PromptBuilder } from './components/PromptBuilder';
 import { DualPaneRunComparison } from './components/DualPaneRunComparison';
 import { ExperimentTreeVisualization } from './components/ExperimentTreeVisualization';
@@ -14,7 +14,7 @@ import { IterationParameterControls } from './components/IterationParameterContr
 import { ThemeToggle } from './components/ThemeToggle';
 import { ApiService } from './services/api';
 import { StorageService, ApiKeys } from './services/storage';
-import { Experiment, ExperimentRun, ChangeMetadata, BlockChanges, PromptBlockState, LabNotebookEntry, ExperimentEvaluation as Evaluation, PromptBlock, RunComparison as RunComparisonType, ExperimentAnalysis } from './types';
+import { Experiment, ExperimentRun, ChangeMetadata, BlockChanges, PromptBlockState, LabNotebookEntry, ExperimentEvaluation as Evaluation, PromptBlock, RunComparison as RunComparisonType, ExperimentAnalysis, UploadedFile } from './types';
 import { ThemeProvider } from './contexts/ThemeContext';
 
 
@@ -137,7 +137,6 @@ function App() {
         if (matchingBlock) {
           blocks.push({
             id: matchingBlock.id,
-            isIncluded: true,
             content: blockContent,
             isCollapsed: !shouldAutoExpand,
           });
@@ -150,7 +149,6 @@ function App() {
       if (!blocks.some(b => b.id === block.id)) {
         blocks.push({
           id: block.id,
-          isIncluded: false,
           content: block.defaultContent,
           isCollapsed: !shouldAutoExpand,
         });
@@ -178,7 +176,16 @@ function App() {
     objective: ''
   });
 
+  // State for file uploads
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
 
+  // State for assembled prompt
+  const [currentAssembledPrompt, setCurrentAssembledPrompt] = useState<string>('');
+
+  // File upload handlers
+  const handleFilesChange = (files: UploadedFile[]) => {
+    setUploadedFiles(files);
+  };
 
   // State for current run output
   const [currentRunOutput, setCurrentRunOutput] = useState('');
@@ -278,6 +285,13 @@ function App() {
     setDualPaneSelectedForkRunId('');
   }, [currentExperiment?.id]);
 
+  // Clear dual pane state when workflow step changes to comparison
+  useEffect(() => {
+    if (workflowStep === 'comparison') {
+      setDualPaneSelectedForkRunId('');
+    }
+  }, [workflowStep]);
+
   // Initialize parameters and prompt content when a fork run is selected
   useEffect(() => {
     if (selectedForkRunId && currentExperiment) {
@@ -336,7 +350,7 @@ function App() {
     
     // Store original prompt and block states for reset functionality
     const assembledPrompt = currentBlockStates
-      .filter(block => block.isIncluded)
+      .filter(block => block.content.trim() !== '')
       .map(block => {
         const blockConfig = PROMPT_BLOCKS.find((b: PromptBlock) => b.id === block.id);
         const blockName = blockConfig?.name || block.id;
@@ -383,7 +397,7 @@ ${assembledPrompt}
       version: getNextVersion(selectedExperiment),
       parentVersion: selectedExperiment?.id,
       // New modular prompt building fields
-      includedBlocks: currentBlockStates.filter(b => b.isIncluded).map(b => b.id),
+      includedBlocks: currentBlockStates.filter(b => b.content.trim() !== '').map(b => b.id),
       blockContent: currentBlockStates.reduce((acc, block) => {
         acc[block.id] = block.content;
         return acc;
@@ -421,19 +435,25 @@ ${assembledPrompt}
         throw new Error('No Gemini API key found. Please add your API key to the .env file or use the settings. Get your free API key from: https://aistudio.google.com/');
       }
 
-      // Build the prompt from current block states
-      const assembledPrompt = currentBlockStates
-        .filter(block => block.isIncluded)
-        .map(block => {
-          // Get the block config to use the proper name
-          const blockConfig = PROMPT_BLOCKS.find((b: PromptBlock) => b.id === block.id);
-          const blockName = blockConfig?.name || block.id;
-          return `${blockName}:\n${block.content}`;
-        })
-        .join('\n\n');
+      // Use the assembled prompt that includes file content, or fall back to building from block states
+      let finalPrompt = currentAssembledPrompt || (() => {
+        // Build the prompt from current block states as fallback
+        return currentBlockStates
+          .filter(block => block.content.trim() !== '')
+          .map(block => {
+            // Get the block config to use the proper name
+            const blockConfig = PROMPT_BLOCKS.find((b: PromptBlock) => b.id === block.id);
+            const blockName = blockConfig?.name || block.id;
+            return `${blockName}:\n${block.content}`;
+          })
+          .join('\n\n');
+      })();
+
+      console.log('Using assembled prompt:', !!currentAssembledPrompt);
+      console.log('Final prompt length:', finalPrompt.length);
+      console.log('Final prompt preview:', finalPrompt.substring(0, 300) + '...');
 
       // Apply run-specific tweaks
-      let finalPrompt = assembledPrompt;
       if (run.blockTweaks) {
         Object.entries(run.blockTweaks).forEach(([blockId, tweak]) => {
           finalPrompt = finalPrompt.replace(new RegExp(`${blockId}:.*`, 'g'), `${blockId}: ${tweak}`);
@@ -646,6 +666,11 @@ ${assembledPrompt}
       return { canRun: true, reason: '', changes: [] };
     }
 
+    // If there are multiple runs, require a fork selection
+    if (currentExperiment.runs.length > 1 && !selectedForkRunId) {
+      return { canRun: false, reason: 'Please select a fork point to continue from', changes: [] };
+    }
+
     // Track what changed from the last run
     const changes: string[] = [];
     
@@ -698,7 +723,7 @@ ${assembledPrompt}
     
     currentBlockStatesToUse.forEach(block => {
       const lastContent = baselineBlockStates[block.id] || '';
-      if (block.content !== lastContent && block.isIncluded) {
+      if (block.content !== lastContent && block.content.trim() !== '') {
         changes.push(`${block.id} content modified`);
       }
     });
@@ -884,6 +909,10 @@ ${assembledPrompt}
     setCurrentExperiment(experiment);
     setSelectedExperiment(experiment);
     
+    // Clear any previous fork run selection to ensure no auto-selection
+    setDualPaneSelectedForkRunId('');
+    setSelectedForkRunId(null);
+    
     // Determine the appropriate workflow step based on experiment state
     if (experiment.runs.length === 0) {
       // New experiment - go to building
@@ -991,8 +1020,11 @@ ${assembledPrompt}
     setBlockChanges(changes);
   }, []);
 
-  const handlePromptChange = useCallback(() => {
-    // Empty function for iteration mode where we don't need to track prompt changes
+  const handlePromptChange = useCallback((assembledPrompt: string) => {
+    // Store the assembled prompt that includes file content
+    console.log('handlePromptChange called with prompt length:', assembledPrompt.length);
+    console.log('Prompt preview:', assembledPrompt.substring(0, 300) + '...');
+    setCurrentAssembledPrompt(assembledPrompt);
   }, []);
 
   // Memoized previous run content to prevent re-calculations
@@ -1106,7 +1138,7 @@ ${assembledPrompt}
               )}
               <PromptBuilder
                 value=""
-                onChange={() => {}}
+                onChange={handlePromptChange}
                 previousExperiment={selectedExperiment || undefined}
                 onBlockChanges={handleBlockChanges}
                 onBlockStatesChange={handleBlockStatesChange}
@@ -1116,11 +1148,13 @@ ${assembledPrompt}
                 onParameterChange={handleParameterChange}
                 changedParameter={changedParameter}
                 changedBlock={changedBlock}
+                onFilesChange={handleFilesChange}
+                uploadedFiles={uploadedFiles}
               />
             </motion.div>
 
             {/* Navigation and Run Buttons - Outside Prompt Builder */}
-            {currentBlockStates.some(block => block.isIncluded && block.content) && !currentExperiment && (
+            {currentBlockStates.some(block => block.content.trim() !== '') && !currentExperiment && (
               <div className="flex items-center justify-between mt-8">
                 <button
                   onClick={() => setWorkflowStep('setup')}
@@ -1295,8 +1329,8 @@ ${assembledPrompt}
                 </h3>
               </div>
 
-              <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-4">
-                <div className="text-sm font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words">
+              <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-6">
+                <div className="text-base leading-relaxed text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words font-sans">
                   {currentRunOutput || 'No output available'}
                 </div>
               </div>
@@ -1398,8 +1432,8 @@ ${assembledPrompt}
                       {/* Output */}
                       <div>
                         <h4 className="text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary mb-2">Output</h4>
-                        <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-4 h-96 overflow-y-auto">
-                          <div className="text-sm font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words">
+                        <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-6 h-96 overflow-y-auto">
+                          <div className="text-base leading-relaxed text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words font-sans">
                             {currentRunOutput}
                           </div>
                         </div>
@@ -1453,8 +1487,7 @@ ${assembledPrompt}
                         timestamp: Date.now(),
                       };
                       handleSaveEvaluation(evaluation);
-                      // Set the current run as the fork point for iteration
-                      setSelectedForkRunId(currentRun.id);
+                      // Don't auto-select fork point - let user choose
                       setWorkflowStep('iteration');
                     }
                   }
@@ -1527,6 +1560,19 @@ ${assembledPrompt}
                       </div>
                     );
                   })()}
+                  {!selectedForkRunId && currentExperiment && currentExperiment.runs.length > 1 && (
+                    <div className="mt-2 space-y-1">
+                      <div className="text-sm text-weave-light-secondary dark:text-weave-dark-secondary">
+                        No fork point selected
+                      </div>
+                      <button
+                        onClick={() => setWorkflowStep('evaluation')}
+                        className="text-xs text-weave-light-accent dark:text-weave-dark-accent hover:underline"
+                      >
+                        Select Fork Point
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1557,6 +1603,8 @@ ${assembledPrompt}
                   ) : currentBlockStates}
                 previousRunContent={previousRunContent}
                 isForkMode={!!selectedForkRunId}
+                onFilesChange={handleFilesChange}
+                uploadedFiles={uploadedFiles}
               />
               </div>
 
@@ -1741,7 +1789,13 @@ ${assembledPrompt}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Brain className="h-8 w-8 text-weave-light-accent dark:text-weave-dark-accent" />
+              <div className="relative">
+                <svg width="40" height="40" viewBox="0 0 40 40" className="logo-svg">
+                  <rect width="40" height="40" fill="var(--weave-background)" rx="2.5" ry="2.5"/>
+                  <rect x="2.5" y="2.5" width="35" height="35" fill="none" stroke="var(--weave-accent)" stroke-width="1.875" rx="1.25" ry="1.25"/>
+                  <text x="20" y="20" font-family="Inter, Arial, sans-serif" font-size="15" fill="var(--weave-accent)" font-weight="bold" text-anchor="middle" dominant-baseline="middle">PL</text>
+                </svg>
+              </div>
               <div>
                 <h1 className="text-4xl font-extrabold tracking-tight text-weave-light-primary dark:text-weave-dark-primary sm:text-5xl">Prompt Lab</h1>
               </div>

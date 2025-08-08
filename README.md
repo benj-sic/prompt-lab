@@ -51,6 +51,7 @@ A powerful prompt engineering experimentation tool that helps you build, test, a
 - **Dark/Light Theme**: Toggle between themes for comfortable use
 - **Responsive Design**: Works on desktop and mobile devices
 - **Export/Import**: Share experiments with others
+- **Theme-Adaptive Logo**: Periodic table style "PL" logo that adapts to light/dark themes
 
 ## Getting Started
 
