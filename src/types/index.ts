@@ -95,7 +95,6 @@ export interface PromptBlock {
 
 export interface PromptBlockState {
   id: string;
-  isIncluded: boolean;
   content: string;
   isCollapsed: boolean;
 }
@@ -155,4 +154,13 @@ export interface LabNotebookEntry {
 export interface LabNotebookLog {
   entries: LabNotebookEntry[];
   lastUpdated: number;
+}
+
+export interface UploadedFile {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  content?: string; // For text files
+  url?: string; // For PDFs and other files
 } 

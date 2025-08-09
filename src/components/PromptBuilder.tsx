@@ -1,17 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronRight, Minus, FileText, X, Paperclip } from 'lucide-react';
-import { PromptBlock, PromptBlockState, Experiment, BlockChanges } from '../types';
+import { ChevronDown, ChevronRight, X, Paperclip } from 'lucide-react';
+import { PromptBlock, PromptBlockState, Experiment, BlockChanges, UploadedFile } from '../types';
 import { getDemoPrompt } from '../utils/demoPrompts';
-
-interface UploadedFile {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-  content?: string; // For text files
-  url?: string; // For PDFs and other files
-}
 
 interface PromptBuilderProps {
   value: string;
@@ -261,7 +252,7 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
     console.log('Setting block states from fallback initialization');
     setBlockStates(initialStates);
     initializedRef.current = true;
-  }, [initialBlockStates, previousExperiment, isForkMode]);
+  }, [initialBlockStates, previousExperiment, isForkMode, userHasEdited, blockStates]);
 
   const getBlockConfig = useCallback((blockId: string) => {
     return PROMPT_BLOCKS.find(block => block.id === blockId);
