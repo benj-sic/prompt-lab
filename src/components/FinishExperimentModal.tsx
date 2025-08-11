@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, NotebookPen, Check, Copy, CheckCheck } from 'lucide-react';
+import { X, NotebookPen, Check } from 'lucide-react';
 import { Experiment, LabNotebookEntry } from '../types';
 
 interface FinishExperimentModalProps {

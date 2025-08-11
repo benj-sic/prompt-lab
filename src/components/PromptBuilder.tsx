@@ -8,7 +8,7 @@ import { getDemoPrompt } from '../utils/demoPrompts';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Set the worker source for PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
 
 interface PromptBuilderProps {
   value: string;
@@ -119,7 +119,6 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
   const [showParameters, setShowParameters] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>(uploadedFiles);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [userHasEdited, setUserHasEdited] = useState(false);
   const [isParsingPDF, setIsParsingPDF] = useState(false);
   
   const initializedRef = useRef(false);
@@ -218,24 +217,7 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
         const config = getBlockConfig(block.id);
         if (!config) return '';
         
-        let content = block.content;
-        
-        // If this is the context block and we have uploaded files, include their content
-        if (block.id === 'context' && files.length > 0) {
-          console.log('Adding file content to context block');
-          console.log('Files available:', files.map(f => f.name));
-          console.log('isForkMode:', isForkMode);
-                      const fileContent = files.map(file => 
-              `${file.content || 'File content not available'}`
-            ).join('\n\n');
-          content = content + (content ? '\n\n' : '') + fileContent;
-          console.log('File content added to context');
-          console.log('Final context content length:', content.length);
-          console.log('Context content preview:', content.substring(0, 500) + '...');
-        } else if (block.id === 'context') {
-          console.log('Context block found but no files');
-          console.log('Files length:', files.length, 'isForkMode:', isForkMode);
-        }
+        const content = block.content;
         
         return `${config.name}:\n${content}`;
       })
@@ -278,7 +260,6 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
     // In fork mode, also mark that we've made user changes to prevent auto-reset
     if (isForkMode) {
       console.log('User edit in fork mode - preventing auto-reset');
-      setUserHasEdited(true);
     }
     
     const updatedBlockStates = blockStates.map(block => 
@@ -464,7 +445,7 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
   };
 
   // Load demo prompt (only for initial building, not iterations)
-  const loadDemoPrompt = () => {
+  const loadDemoPrompt = async () => {
     const demoPrompt = getDemoPrompt();
     
     const demoStates: PromptBlockState[] = blockStates.map(block => {
@@ -479,18 +460,30 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
     setBlockStates(demoStates);
     onBlockStatesChange?.(demoStates);
     
-    // Automatically create and upload the mock study report
-    const mockStudyReport: UploadedFile = {
-      id: 'demo-mock-report',
-      name: 'Mock_IND_Study_Report_v2.pdf',
-      size: 45000, // Approximate size
-      type: 'application/pdf',
-      content: `[PDF STUDY REPORT: Mock_IND_Study_Report_v2.pdf]`
-    };
-    
-    // Set the mock file
-    setFiles([mockStudyReport]);
-    onFilesChange?.([mockStudyReport]);
+    // Automatically fetch, parse, and upload the mock study report
+    try {
+      const response = await fetch('/Mock_IND_Study_Report_v2.pdf');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+      }
+      const blob = await response.blob();
+      const file = new File([blob], 'Mock_IND_Study_Report_v2.pdf', { type: 'application/pdf' });
+      
+      // Use the existing file upload handler
+      await handleFileUpload([file]);
+      
+    } catch (error) {
+      console.error('Error loading or parsing demo PDF:', error);
+      const errorFile: UploadedFile = {
+        id: 'demo-mock-report-error',
+        name: 'Mock_IND_Study_Report_v2.pdf',
+        size: 0,
+        type: 'application/pdf',
+        content: `[Error: Could not load the demo PDF. Please ensure "Mock_IND_Study_Report_v2.pdf" is in the public folder.]`
+      };
+      setFiles([errorFile]);
+      onFilesChange?.([errorFile]);
+    }
   };
 
   return (
@@ -502,7 +495,7 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
           {/* Demo button - only show for initial building (no previous experiment and not in fork mode) */}
           {!previousExperiment && !isForkMode && (
             <button
-              onClick={loadDemoPrompt}
+              onClick={() => loadDemoPrompt()}
               className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary hover:text-weave-light-accent dark:hover:text-weave-dark-accent transition-colors"
             >
                               <span>Demo</span>
@@ -611,8 +604,8 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
                       )}
                     </div>
                     
-                    {/* Paperclip icon and file upload display - Only show for context block during initial building */}
-                    {block.id === 'context' && !isForkMode && (
+                    {/* Paperclip icon and file upload display - Only show for context block */}
+                    {block.id === 'context' && (
                       <div className="flex items-center justify-between mt-2">
                         {/* Uploaded file display as colored text on the left */}
                         <div className="flex items-center space-x-2">

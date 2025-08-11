@@ -21,6 +21,7 @@ export interface ExperimentRun {
 export interface Experiment {
   id: string;
   timestamp: number;
+  client?: string;
   title: string;
   description: string;
   hypothesis: string;

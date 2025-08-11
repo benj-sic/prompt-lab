@@ -15,7 +15,6 @@ A powerful prompt engineering experimentation tool that helps you build, test, a
 ### Key Improvements
 
 #### Simplified Interface
-- **Less Prominent Demo**: Demo button is now subtle colored text instead of a prominent button
 - **Unified Components**: All prompt components (core and advanced) are now in one section
 - **Streamlined Parameters**: Model parameters are collapsible and always accessible
 
@@ -79,7 +78,7 @@ A powerful prompt engineering experimentation tool that helps you build, test, a
 
 This app requires a Gemini API key to run experiments. Here's how to set it up:
 
-### Option 1: Environment Variables (Recommended)
+### Environment Variables (Recommended)
 1. Copy `env.example` to `.env` in the project root
 2. Get your free API key from [Google AI Studio](https://aistudio.google.com/)
 3. Add your API key to the `.env` file:
@@ -87,11 +86,6 @@ This app requires a Gemini API key to run experiments. Here's how to set it up:
    REACT_APP_GEMINI_API_KEY=your_api_key_here
    ```
 4. Restart the development server
-
-### Option 2: Settings Panel
-1. Run the app and click the "Settings" button
-2. Enter your Gemini API key
-3. The key will be saved locally
 
 ### Getting Your API Key
 1. Go to [Google AI Studio](https://aistudio.google.com/)
@@ -117,7 +111,6 @@ The app will open at `http://localhost:3000`
 - `App.tsx`: Main application component with workflow management
 - `PromptBuilder.tsx`: Modular prompt construction interface
 - `DualPaneRunComparison.tsx`: Side-by-side run comparison tool
-- `ExperimentTreeVisualization.tsx`: Visual experiment branching tree
 - `LabNotebook.tsx`: Experiment history and management
 - `ApiErrorDisplay.tsx`: Error handling and API status display
 
@@ -133,27 +126,3 @@ The app will open at `http://localhost:3000`
 - `SETUP.md`: Quick setup guide
 - `DEMO_EXAMPLES.md`: Detailed workflow examples
 - `BRANCHING_FEATURES_GUIDE.md`: Branching feature documentation
-
-## Recent Cleanup
-
-The codebase has been cleaned up to remove unused components and improve maintainability:
-
-### Removed Unused Components
-- `ExperimentHistory.tsx`: Replaced by integrated LabNotebook
-- `EnhancedRunComparison.tsx`: Functionality merged into DualPaneRunComparison
-- `ExperimentLabNotebookEntry.tsx`: Integrated into LabNotebook
-- `OutputDisplay.tsx`: Replaced by inline output display
-- `RunComparison.tsx`: Replaced by DualPaneRunComparison
-- `ExperimentNotes.tsx`: Integrated into evaluation workflow
-- `ForkRunModal.tsx`: Functionality moved to DualPaneRunComparison
-- `ForkSelectionModal.tsx`: Integrated into DualPaneRunComparison
-- `ParameterControls.tsx`: Replaced by IterationParameterControls
-- `ExperimentRuns.tsx`: Integrated into LabNotebook
-- `PromptInput.tsx`: Replaced by PromptBuilder
-
-### Removed Unused Utilities
-- `experimentTree.ts`: Tree logic integrated into ExperimentTreeVisualization
-- `theme.ts`: Theme management moved to ThemeContext
-
-### Maintained Components
-All remaining components are actively used and essential to the application workflow.

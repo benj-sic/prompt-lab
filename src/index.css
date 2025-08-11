@@ -179,6 +179,45 @@ body {
   transform: translateY(-1px);
 }
 
+/* Typography */
+.h1 {
+  @apply text-4xl font-extrabold tracking-tight text-weave-light-primary dark:text-weave-dark-primary sm:text-5xl;
+}
+.h2 {
+  @apply text-2xl font-bold text-weave-light-primary dark:text-weave-dark-primary;
+}
+.h3 {
+  @apply text-lg font-medium text-weave-light-primary dark:text-weave-dark-primary;
+}
+.h4 {
+  @apply text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary;
+}
+.body-text {
+  @apply text-base text-weave-light-secondary dark:text-weave-dark-secondary;
+}
+
+/* Buttons */
+.btn-primary {
+  @apply flex items-center space-x-2 px-4 py-2 rounded-lg bg-weave-light-accent dark:bg-weave-dark-accent text-white hover:bg-weave-light-accentMuted dark:hover:bg-weave-dark-accentMuted transition-colors;
+}
+.btn-secondary {
+  @apply flex items-center space-x-2 px-4 py-2 rounded-lg border border-weave-light-border dark:border-weave-dark-border text-weave-light-secondary dark:text-weave-dark-secondary hover:bg-weave-light-accentMuted dark:hover:bg-weave-dark-accentMuted transition-colors;
+}
+.btn-ghost {
+  @apply flex items-center space-x-2 px-4 py-2 text-weave-light-secondary dark:text-weave-dark-secondary hover:text-weave-light-primary dark:hover:text-weave-dark-primary transition-colors;
+}
+
+/* Icon Sizing */
+.icon-sm {
+  @apply h-4 w-4;
+}
+.icon-md {
+  @apply h-5 w-5;
+}
+.icon-lg {
+  @apply h-6 w-6;
+}
+
 /* Custom slider styling */
 .slider {
   -webkit-appearance: none;

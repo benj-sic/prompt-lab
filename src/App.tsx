@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { FlaskConical, Play, TrendingUp, ArrowRight, ArrowLeft, ListStart, ListRestart, Split, NotebookPen, Network, GitBranchPlus, NotebookText } from 'lucide-react';
+import { FlaskConical, Play, ArrowLeft, ListStart, ListRestart, NotebookPen, GitBranchPlus, NotebookText } from 'lucide-react';
 import { PromptBuilder } from './components/PromptBuilder';
 import { DualPaneRunComparison } from './components/DualPaneRunComparison';
 
@@ -187,6 +187,7 @@ function App() {
   // State for current workflow step
   const [workflowStep, setWorkflowStep] = useState<'building' | 'setup' | 'loading' | 'output' | 'evaluation' | 'iteration' | 'comparison'>('setup');
   const [experimentSetup, setExperimentSetup] = useState({
+    client: '',
     title: '',
     objective: ''
   });
@@ -298,7 +299,7 @@ function App() {
       setCurrentExperiment(null);
       setCurrentRun(null);
       setCurrentRunOutput('');
-      setExperimentSetup({ title: '', objective: '' });
+      setExperimentSetup({ client: '', title: '', objective: '' });
       setWorkflowStep('setup');
       setSelectedForkRunId(null);
       setComparisonNotes('');
@@ -354,6 +355,7 @@ function App() {
         const blockStates = parsePromptIntoBlocks(forkRun.prompt, true);
         
         setCurrentBlockStates([...blockStates]); // Initialize current states to match
+        setUploadedFiles(forkRun.uploadedFiles || []);
         
         // Clear any existing change indicators since we're starting fresh from the fork
         setChangedParameter(null);
@@ -436,6 +438,7 @@ ${assembledPrompt}
       notes: initialNotebookEntry,
       version: getNextVersion(selectedExperiment),
       parentVersion: selectedExperiment?.id,
+      client: experimentSetup.client,
       // New modular prompt building fields
       includedBlocks: currentBlockStates.filter(b => b.content.trim() !== '').map(b => b.id),
       blockContent: currentBlockStates.reduce((acc, block) => {
@@ -475,8 +478,8 @@ ${assembledPrompt}
         throw new Error('No Gemini API key found. Please add your API key to the .env file or use the settings. Get your free API key from: https://aistudio.google.com/');
       }
 
-      // Use the assembled prompt that includes file content, or fall back to building from block states
-      let finalPrompt = currentAssembledPrompt || (() => {
+      // Build the user-visible prompt from the current state
+      const userVisiblePrompt = currentAssembledPrompt || (() => {
         // Build the prompt from current block states as fallback
         return currentBlockStates
           .filter(block => block.content.trim() !== '')
@@ -488,6 +491,18 @@ ${assembledPrompt}
           })
           .join('\n\n');
       })();
+
+      let finalPrompt = userVisiblePrompt;
+      // Prepend file content if available
+      if (run.uploadedFiles && run.uploadedFiles.length > 0) {
+        const fileContent = run.uploadedFiles
+          .map(file => file.content || '')
+          .join('\n\n');
+        
+        if (fileContent) {
+          finalPrompt = `--- START OF CONTEXT DOCUMENT ---\n${fileContent}\n--- END OF CONTEXT DOCUMENT ---\n\n${userVisiblePrompt}`;
+        }
+      }
 
       console.log('Using assembled prompt:', !!currentAssembledPrompt);
       console.log('Final prompt length:', finalPrompt.length);
@@ -523,7 +538,7 @@ ${assembledPrompt}
       const updatedRun: ExperimentRun = {
         ...run,
         output: result,
-        prompt: finalPrompt,
+        prompt: userVisiblePrompt,
       };
 
       
@@ -823,6 +838,26 @@ ${assembledPrompt}
       changedBlockIds.add(changedBlock);
     }
     
+    // Check for file changes
+    let baselineFiles: UploadedFile[] = [];
+    if (selectedForkRunId && currentExperiment) {
+      const forkRun = currentExperiment.runs.find(r => r.id === selectedForkRunId);
+      if (forkRun) {
+        baselineFiles = forkRun.uploadedFiles || [];
+      }
+    } else if (currentExperiment.runs.length > 0) {
+      const mostRecentRun = currentExperiment.runs[currentExperiment.runs.length - 1];
+      baselineFiles = mostRecentRun.uploadedFiles || [];
+    }
+
+    const currentFileSignatures = uploadedFiles.map(f => `${f.name}|${f.size}`).sort().join(',');
+    const baselineFileSignatures = baselineFiles.map(f => `${f.name}|${f.size}`).sort().join(',');
+
+    if (currentFileSignatures !== baselineFileSignatures) {
+      changes.push('Attached file changed');
+      changedBlockIds.add('file-attachment'); // Use a special ID
+    }
+    
     // Debug logging to help identify the issue
     console.log('Validation debug:', {
       changes,
@@ -997,7 +1032,7 @@ ${assembledPrompt}
     setCurrentExperiment(null);
     setCurrentRun(null);
     setCurrentRunOutput('');
-    setExperimentSetup({ title: '', objective: '' });
+    setExperimentSetup({ client: '', title: '', objective: '' });
     setWorkflowStep('setup');
     
     // Switch to lab notebook tab to show the finished experiment
@@ -1032,7 +1067,7 @@ ${assembledPrompt}
     if (currentExperiment?.id === id) {
       setCurrentExperiment(null);
       setCurrentRun(null);
-      setExperimentSetup({ title: '', objective: '' });
+      setExperimentSetup({ client: '', title: '', objective: '' });
       setWorkflowStep('setup');
     }
   };
@@ -1378,7 +1413,7 @@ ${assembledPrompt}
             >
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-lg font-medium text-weave-light-primary dark:text-weave-dark-primary">Build Your Prompt</h3>
+                  <h3 className="h3">Build Your Prompt</h3>
                   {!apiKeys.gemini && (
                     <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
                       ⚠️ No API key found. Add your Gemini API key to .env file
@@ -1426,7 +1461,7 @@ ${assembledPrompt}
               {selectedExperiment && (
                 <div className="mb-3 p-2 bg-weave-light-accentMuted dark:bg-weave-dark-accentMuted border border-weave-light-accent dark:border-weave-dark-accent rounded-lg">
                   <p className="text-sm text-weave-light-primary dark:text-weave-dark-primary">
-                    <strong>Iterating on:</strong> {selectedExperiment.version || 'v1'} - {selectedExperiment.title}
+                    <strong>Iterating on:</strong> {selectedExperiment.client && `(${selectedExperiment.client}) `}{selectedExperiment.version || 'v1'} - {selectedExperiment.title}
                   </p>
                 </div>
               )}
@@ -1452,22 +1487,22 @@ ${assembledPrompt}
               <div className="flex items-center justify-between mt-8">
                 <button
                   onClick={() => setWorkflowStep('setup')}
-                  className="flex items-center space-x-2 px-4 py-2 border border-weave-light-border dark:border-weave-dark-border text-weave-light-secondary dark:text-weave-dark-secondary rounded-lg hover:bg-weave-light-accentMuted dark:hover:bg-weave-dark-accentMuted transition-colors"
+                  className="btn-secondary"
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <ArrowLeft className="icon-sm" />
                   <span>Back to Setup</span>
                 </button>
                 
                 <button
                   onClick={createNewExperiment}
                   disabled={isLoading || !apiKeys.gemini}
-                  className={`flex items-center space-x-2 px-8 py-4 rounded-lg transition-all duration-300 text-lg font-medium ${
+                  className={`btn-primary ${
                     isLoading || !apiKeys.gemini
                       ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-weave-light-accent dark:bg-weave-dark-accent hover:bg-weave-light-accentMuted dark:hover:bg-weave-dark-accentMuted text-white shadow-lg hover:shadow-xl'
+                      : ''
                   }`}
                 >
-                  <Play className="h-6 w-6" />
+                  <Play className="icon-md" />
                   <span>{isLoading ? 'Running...' : !apiKeys.gemini ? 'No API Key' : 'Run'}</span>
                 </button>
               </div>
@@ -1491,18 +1526,41 @@ ${assembledPrompt}
               transition={{ duration: 0.5, delay: 0.3 }}
             >
               <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-weave-light-primary dark:text-weave-dark-primary mb-2">
+                <h2 className="h2 mb-2">
                   Setup Your Experiment
                 </h2>
-                <p className="text-sm text-weave-light-secondary dark:text-weave-dark-secondary">
+                <p className="body-text">
                   First, define your experiment's purpose and goals, then you'll build your prompt
                 </p>
               </div>
 
               <div className="space-y-6">
+                {/* Client Name */}
+                <div>
+                  <label className="h4 mb-2">
+                    Client Name
+                  </label>
+                  <select
+                    value={experimentSetup.client}
+                    onChange={(e) => setExperimentSetup(prev => ({ ...prev, client: e.target.value }))}
+                    className="w-full px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-weave-light-accent dark:focus:ring-weave-dark-accent bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText"
+                  >
+                    <option value="">Select a client</option>
+                    <option value="Mock Client">Mock Client</option>
+                    <option value="Enveda Biosciences">Enveda Biosciences</option>
+                    <option value="Cartherics">Cartherics</option>
+                    <option value="Cadenza Bio">Cadenza Bio</option>
+                    <option value="Recursion Pharmaceuticals">Recursion Pharmaceuticals</option>
+                    <option value="MedLife">MedLife</option>
+                    <option value="Aera Therapeutics">Aera Therapeutics</option>
+                    <option value="Trace Biosciences">Trace Biosciences</option>
+                    <option value="92Bio">92Bio</option>
+                  </select>
+                </div>
+
                 {/* Experiment Title */}
                 <div>
-                  <label className="block text-sm font-medium text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
+                  <label className="h4 mb-2">
                     Experiment Title <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -1523,7 +1581,7 @@ ${assembledPrompt}
 
                 {/* Objective/Hypothesis */}
                 <div>
-                  <label className="block text-sm font-medium text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
+                  <label className="h4 mb-2">
                     Objective / Hypothesis <span className="text-red-500">*</span>
                   </label>
                   <textarea
@@ -1543,22 +1601,24 @@ ${assembledPrompt}
                     onClick={() => setWorkflowStep('building')}
                     disabled={
                       !experimentSetup.title.trim() || 
-                      !experimentSetup.objective.trim() || 
+                      !experimentSetup.objective.trim() ||
+                      !experimentSetup.client.trim() ||
                       experiments.some(exp => 
                         exp.title.toLowerCase().trim() === experimentSetup.title.toLowerCase().trim()
                       )
                     }
-                    className={`flex items-center space-x-2 px-6 py-2 rounded-lg transition-colors ${
-                      experimentSetup.title.trim() && 
-                      experimentSetup.objective.trim() && 
+                    className={`btn-primary ${
+                      !(experimentSetup.title.trim() && 
+                      experimentSetup.objective.trim() &&
+                      experimentSetup.client.trim() &&
                       !experiments.some(exp => 
                         exp.title.toLowerCase().trim() === experimentSetup.title.toLowerCase().trim()
-                      )
-                        ? 'bg-weave-light-accent dark:bg-weave-dark-accent text-white hover:bg-weave-light-accentMuted dark:hover:bg-weave-dark-accentMuted'
-                        : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                      ))
+                        ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                        : ''
                     }`}
                   >
-                    <ListStart className="h-4 w-4" />
+                    <ListStart className="icon-sm" />
                     <span>Build Prompt</span>
                   </button>
                 </div>
@@ -1618,7 +1678,7 @@ ${assembledPrompt}
               transition={{ duration: 0.5, delay: 0.3 }}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-weave-light-primary dark:text-weave-dark-primary">
+                <h3 className="h3">
                   Experiment Output
                 </h3>
               </div>
@@ -1648,16 +1708,16 @@ ${assembledPrompt}
               transition={{ duration: 0.5, delay: 0.3 }}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-weave-light-primary dark:text-weave-dark-primary">
+                <h3 className="h3">
                   Experiment Results
                 </h3>
                 {currentExperiment && currentExperiment.runs.length > 1 && (
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={handleFinishExperiment}
-                      className="flex items-center space-x-1 px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      className="btn-primary"
                     >
-                      <NotebookPen className="h-4 w-4" />
+                      <NotebookPen className="icon-sm" />
                       <span>Finish & Summarize</span>
                     </button>
                     
@@ -1691,7 +1751,7 @@ ${assembledPrompt}
                     <div className="space-y-4">
                       {/* Output */}
                       <div>
-                        <h4 className="text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary mb-2">Output</h4>
+                        <h4 className="h4 mb-2">Output</h4>
                         <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-6 h-96 overflow-y-auto">
                           <div className="text-base leading-relaxed text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words font-sans">
                             {currentRunOutput}
@@ -1704,7 +1764,7 @@ ${assembledPrompt}
 
                     {/* Right: Observations (full width) */}
                     <div>
-                      <h4 className="text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary mb-2">Observations</h4>
+                      <h4 className="h4 mb-2">Observations</h4>
                       <textarea
                         value={evaluationFeedback}
                         onChange={(e) => setEvaluationFeedback(e.target.value)}
@@ -1761,22 +1821,22 @@ ${assembledPrompt}
                       ? !comparisonNotes.trim() || !dualPaneSelectedForkRunId
                       : !evaluationFeedback.trim()
                   }
-                  className={`flex items-center space-x-2 px-6 py-3 rounded-lg transition-colors text-lg font-medium ${
-                    (currentExperiment && currentExperiment.runs.length > 1
+                  className={`btn-primary ${
+                    !((currentExperiment && currentExperiment.runs.length > 1
                       ? comparisonNotes.trim() && dualPaneSelectedForkRunId
-                      : evaluationFeedback.trim())
-                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
-                      : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                      : evaluationFeedback.trim()))
+                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                      : ''
                   }`}
                 >
                   {currentExperiment && currentExperiment.runs.length > 1 ? (
                     <>
-                      <GitBranchPlus className="h-5 w-5" />
+                      <GitBranchPlus className="icon-md" />
                       <span>Fork & Iterate</span>
                     </>
                   ) : (
                     <>
-                      <ListRestart className="h-5 w-5" />
+                      <ListRestart className="icon-md" />
                       <span>Iterate</span>
                     </>
                   )}
@@ -1802,7 +1862,7 @@ ${assembledPrompt}
             >
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-medium text-weave-light-primary dark:text-weave-dark-primary">
+                  <h3 className="h3">
                     Iterate Experiment
                   </h3>
                   {selectedForkRunId && currentExperiment && currentExperiment.runs.length > 1 && (() => {
@@ -1915,9 +1975,9 @@ ${assembledPrompt}
             >
               <button
                 onClick={() => setWorkflowStep('evaluation')}
-                className="flex items-center space-x-2 px-4 py-2 text-weave-light-secondary dark:text-weave-dark-secondary hover:text-weave-light-primary dark:hover:text-weave-dark-primary transition-colors"
+                className="btn-ghost"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="icon-sm" />
                 <span>Back to Evaluation</span>
               </button>
               
@@ -1934,13 +1994,13 @@ ${assembledPrompt}
                                               <button
                         onClick={handleNextRun}
                         disabled={!validation.canRun}
-                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                          validation.canRun
-                            ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
-                            : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                        className={`btn-primary ${
+                          !validation.canRun
+                            ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                            : ''
                         }`}
                       >
-                        <Play className="h-4 w-4" />
+                        <Play className="icon-sm" />
                         <span>Run</span>
                       </button>
                     </>
@@ -1967,16 +2027,16 @@ ${assembledPrompt}
               transition={{ duration: 0.5, delay: 0.3 }}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-weave-light-primary dark:text-weave-dark-primary">
+                <h3 className="h3">
                   Experiment Comparison & Iteration
                 </h3>
                 {currentExperiment && (
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={handleFinishExperiment}
-                      className="flex items-center space-x-1 px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      className="btn-primary"
                     >
-                      <NotebookPen className="h-4 w-4" />
+                      <NotebookPen className="icon-sm" />
                       <span>Finish & Summarize</span>
                     </button>
                   </div>
@@ -2005,7 +2065,7 @@ ${assembledPrompt}
                   <p>This experiment doesn't have enough runs to compare.</p>
                   <button
                     onClick={() => setWorkflowStep('evaluation')}
-                    className="mt-4 px-4 py-2 bg-weave-light-accent dark:bg-weave-dark-accent text-white rounded-lg hover:bg-weave-light-accentMuted dark:hover:bg-weave-dark-accentMuted transition-colors"
+                    className="btn-primary mt-4"
                   >
                     Go to Evaluation
                   </button>
@@ -2032,13 +2092,13 @@ ${assembledPrompt}
                     setWorkflowStep('iteration');
                   }}
                   disabled={!comparisonNotes.trim() || !dualPaneSelectedForkRunId}
-                  className={`flex items-center space-x-2 px-6 py-3 rounded-lg transition-colors text-lg font-medium ${
-                    comparisonNotes.trim() && dualPaneSelectedForkRunId
-                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
+                  className={`btn-primary ${
+                    !(!comparisonNotes.trim() || !dualPaneSelectedForkRunId)
+                      ? ''
                       : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  <GitBranchPlus className="h-5 w-5" />
+                  <GitBranchPlus className="icon-md" />
                   <span>Fork & Iterate</span>
                 </button>
               </div>
@@ -2073,12 +2133,12 @@ ${assembledPrompt}
                 </svg>
               </div>
               <div>
-                <h1 className="text-4xl font-extrabold tracking-tight text-weave-light-primary dark:text-weave-dark-primary sm:text-5xl">Prompt Lab</h1>
+                <h1 className="h1">Prompt Lab</h1>
               </div>
             </div>
             <ThemeToggle />
           </div>
-          <p className="text-weave-light-secondary dark:text-weave-dark-secondary mt-2">
+          <p className="body-text mt-2">
             Run prompt experiments, track changes, and build your prompt engineering handbook
           </p>
         </motion.div>

@@ -7,7 +7,6 @@ import {
   X,
   Play,
   Clock,
-  FileText,
   Calendar,
   Target,
   ChevronRight,
@@ -609,6 +608,7 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedExperiment, setSelectedExperiment] = useState<Experiment | null>(null);
   const [showDetailedView, setShowDetailedView] = useState(false);
+  const [groupByClient, setGroupByClient] = useState(false);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString();
@@ -632,10 +632,22 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
   const filteredExperiments = allExperiments
     .filter(experiment => 
       experiment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (experiment.client && experiment.client.toLowerCase().includes(searchTerm.toLowerCase())) ||
       experiment.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       experiment.hypothesis.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => b.timestamp - a.timestamp); // Sort newest to oldest
+
+  const groupedExperiments = groupByClient
+    ? filteredExperiments.reduce((acc, experiment) => {
+        const client = experiment.client || 'Unassigned';
+        if (!acc[client]) {
+          acc[client] = [];
+        }
+        acc[client].push(experiment);
+        return acc;
+      }, {} as Record<string, Experiment[]>)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -646,6 +658,16 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Lab Notebook</h2>
         </div>
         <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setGroupByClient(prev => !prev)}
+            className={`flex items-center space-x-1 px-3 py-1 text-sm rounded transition-colors ${
+              groupByClient
+                ? 'bg-blue-500 text-white'
+                : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+            }`}
+          >
+            <span>Group by Client</span>
+          </button>
           {experiments.length > validExperiments.length && (
             <button
               onClick={() => {
@@ -691,6 +713,73 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
             <NotebookText className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
             <p>{searchTerm ? 'No experiments found matching your search.' : 'No experiments yet. Run your first experiment to see it here!'}</p>
           </div>
+        ) : groupByClient && groupedExperiments ? (
+          Object.entries(groupedExperiments).map(([client, experiments]) => (
+            <div key={client}>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">{client}</h3>
+              <div className="space-y-4">
+                {experiments.map((experiment) => (
+                  <div
+                    key={experiment.id}
+                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setSelectedExperiment(experiment);
+                      setShowDetailedView(true);
+                    }}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        {/* Experiment Header */}
+                        <div className="flex items-center space-x-2 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {experiment.title}
+                          </h3>
+                        </div>
+
+                        {/* Experiment Meta */}
+                        <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                          <div className="flex items-center space-x-1">
+                            <Calendar className="h-3 w-3" />
+                            <span>{formatDate(experiment.timestamp)}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Target className="h-3 w-3" />
+                            <span>{experiment.runs?.length || 0} runs</span>
+                          </div>
+                        </div>
+
+                        {/* Objective */}
+                        {(experiment.hypothesis || experiment.objective) && (
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            <strong>Objective:</strong> {experiment.hypothesis || experiment.objective}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center space-x-1">
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteModal({
+                              isVisible: true,
+                              experimentId: experiment.id,
+                              experimentTitle: experiment.title,
+                            });
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                          title="Delete experiment"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
         ) : (
           filteredExperiments.map((experiment) => (
             <div
