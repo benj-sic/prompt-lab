@@ -2074,8 +2074,8 @@ ${assembledPrompt}
               <div className="relative">
                 <svg width="40" height="40" viewBox="0 0 40 40" className="logo-svg">
                   <rect width="40" height="40" fill="var(--weave-background)" rx="2.5" ry="2.5"/>
-                  <rect x="2.5" y="2.5" width="35" height="35" fill="none" stroke="var(--weave-accent)" stroke-width="1.875" rx="1.25" ry="1.25"/>
-                  <text x="20" y="20" font-family="Inter, Arial, sans-serif" font-size="15" fill="var(--weave-accent)" font-weight="bold" text-anchor="middle" dominant-baseline="middle">PL</text>
+                  <rect x="2.5" y="2.5" width="35" height="35" fill="none" stroke="var(--weave-accent)" strokeWidth="1.875" rx="1.25" ry="1.25"/>
+                  <text x="20" y="20" fontFamily="Inter, Arial, sans-serif" fontSize="15" fill="var(--weave-accent)" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">PL</text>
                 </svg>
               </div>
               <div>
