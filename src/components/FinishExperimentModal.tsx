@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, NotebookPen, Check } from 'lucide-react';
+import { X, NotebookPen, Check, Copy, CheckCheck } from 'lucide-react';
 import { Experiment, LabNotebookEntry } from '../types';
 
 interface FinishExperimentModalProps {
   isVisible: boolean;
   experiment: Experiment;
-  onFinish: (entry: LabNotebookEntry, insights: string) => void;
+  onFinish: (entry: LabNotebookEntry, insights: string, client: string) => void;
   onCancel: () => void;
 }
 
@@ -17,6 +17,7 @@ export const FinishExperimentModal: React.FC<FinishExperimentModalProps> = ({
   onCancel,
 }) => {
   const [insights, setInsights] = useState('');
+  const [client, setClient] = useState(experiment.client || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
 
@@ -64,6 +65,7 @@ ${evaluation ? `**Evaluation:**
 
     const summaryContent = `## Overview
 - **Title:** ${experiment.title || 'Untitled Experiment'}
+- **Client:** ${client || 'Not specified'}
 - **Date:** ${new Date(experiment.timestamp).toLocaleDateString()}
 - **Total Runs:** ${experiment.runs.length}
 - **Objective:** ${experiment.hypothesis || experiment.description || 'Not specified'}
@@ -95,7 +97,7 @@ ${generateRunsSection()}`;
       relatedExperiments: [experiment.id],
     };
 
-    onFinish(entry, insights);
+    onFinish(entry, insights, client);
     setIsSubmitting(false);
   };
 
@@ -139,6 +141,20 @@ ${generateRunsSection()}`;
                 <p><strong>Runs:</strong> {experiment.runs.length}</p>
                 <p><strong>Created:</strong> {new Date(experiment.timestamp).toLocaleDateString()}</p>
               </div>
+            </div>
+
+            {/* Client Name Input */}
+            <div>
+              <label className="block text-base font-semibold text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
+                Client Name
+              </label>
+              <input
+                type="text"
+                value={client}
+                onChange={(e) => setClient(e.target.value)}
+                className="w-full px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-weave-light-accent dark:focus:ring-weave-dark-accent bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText text-sm"
+                placeholder="Enter client name (e.g., Acme Corp)"
+              />
             </div>
 
             {/* Final Prompt Section */}

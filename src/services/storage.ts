@@ -71,9 +71,11 @@ export class StorageService {
     }
   }
 
-  static exportExperiments(): string {
-    const experiments = this.loadExperiments();
-    return JSON.stringify(experiments, null, 2);
+  static exportExperiments(experimentsToExport?: Experiment[]): string {
+    const dataToExport = experimentsToExport
+      ? { experiments: experimentsToExport, lastUpdated: Date.now() }
+      : this.loadExperiments();
+    return JSON.stringify(dataToExport, null, 2);
   }
 
   static importExperiments(jsonData: string): boolean {

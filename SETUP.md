@@ -19,9 +19,15 @@ cp env.example .env
 REACT_APP_GEMINI_API_KEY=AIza...your_actual_key_here
 ```
 
+#### Option B: Browser Storage (Quick Start)
+1. Start the app: `npm start`
+2. Click "Settings" in the top right
+3. Paste your API key in the input field
+4. It's automatically saved to your browser
+
 ### Step 3: Start Experimenting!
 1. **Open the app** at `http://localhost:3000`
-2. **Try the demo** - it will guide you through the process of creating and iterating on a prompt
+2. **Try the prompt builder** - drag and drop prompt parts
 3. **Run experiments** with different parameters
 4. **Rate responses** to improve future recommendations
 5. **Document insights** in the lab notebook
@@ -35,11 +41,20 @@ REACT_APP_GEMINI_API_KEY=AIza...your_actual_key_here
 - **Pros**: Industry standard, more secure
 - **Cons**: Requires file setup
 
+### Browser Storage (Quick Start)
+- **Best for**: Quick testing, personal use, learning
+- **Setup**: Add keys through the app interface
+- **Security**: Keys stored in browser localStorage
+- **Pros**: No setup required, works immediately
+- **Cons**: Keys visible in browser dev tools
+
 ## What You Can Do
 
 ### Experiment with Prompts
 - **Visual Prompt Builder**: Drag and drop prompt parts
+- **Smart Templates**: Pre-built templates for common tasks
 - **Parameter Tuning**: Adjust temperature, tokens, models
+- **Real-time Recommendations**: Get AI-powered suggestions
 
 ### Track Your Progress
 - **Experiment History**: All runs are automatically saved

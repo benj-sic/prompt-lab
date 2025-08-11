@@ -874,9 +874,6 @@ ${assembledPrompt}
     const parameterChanges = changes.filter(change => 
       change.includes('Temperature:') || change.includes('Max Tokens:') || change.includes('Model:')
     );
-    const blockChanges = changes.filter(change => 
-      change.includes('content modified')
-    );
     
     // Allow either one parameter change OR one block content change, but not multiple of the same type
     if (parameterChanges.length > 1) {
@@ -992,7 +989,7 @@ ${assembledPrompt}
 
 
 
-  const handleFinishSubmit = (entry: LabNotebookEntry, insights: string) => {
+  const handleFinishSubmit = (entry: LabNotebookEntry, insights: string, client: string) => {
     // Update the experiment with insights
     if (currentExperiment) {
       const updatedAnalysis: ExperimentAnalysis = {
@@ -1004,7 +1001,8 @@ ${assembledPrompt}
 
       const updatedExperiment = {
         ...currentExperiment,
-        analysis: updatedAnalysis
+        analysis: updatedAnalysis,
+        client: client,
       };
 
       // Save the updated experiment
@@ -1151,8 +1149,8 @@ ${assembledPrompt}
     setCurrentExperiment(updatedExperiment);
   };
 
-  const handleExport = () => {
-    const data = StorageService.exportExperiments();
+  const handleExport = (experimentsToExport?: Experiment[]) => {
+    const data = StorageService.exportExperiments(experimentsToExport);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1196,59 +1194,7 @@ ${assembledPrompt}
     setCurrentAssembledPrompt(assembledPrompt);
   }, []);
 
-  // Memoized previous run content to prevent re-calculations
-  const previousRunContent = useMemo(() => {
-    console.log('Calculating previousRunContent:', { currentExperiment, selectedForkRunId });
-    
-    if (!currentExperiment) {
-      console.log('No currentExperiment, returning undefined');
-      return undefined;
-    }
-    
-    // If we have a selected fork run, use that as the baseline
-    if (selectedForkRunId) {
-      const forkRun = currentExperiment.runs.find(r => r.id === selectedForkRunId);
-      console.log('Fork run found:', forkRun);
-      
-      if (!forkRun) {
-        console.log('No fork run found, returning undefined');
-        return undefined;
-      }
-      
-      const content: Record<string, string> = {};
-      
-      // Use the parsePromptIntoBlocks function for consistent parsing
-      const forkBlockStates = parsePromptIntoBlocks(forkRun.prompt);
-      forkBlockStates.forEach(block => {
-        content[block.id] = block.content;
-        console.log(`Found content for ${block.id}:`, block.content);
-      });
-      
-      console.log('Final previousRunContent from fork run:', content);
-      return content;
-    }
-    
-    // If no fork run is selected but we have runs, use the most recent run as baseline
-    if (currentExperiment.runs.length > 0) {
-      const mostRecentRun = currentExperiment.runs[currentExperiment.runs.length - 1];
-      console.log('Using most recent run as baseline:', mostRecentRun);
-      
-      const content: Record<string, string> = {};
-      
-      // Use the parsePromptIntoBlocks function for consistent parsing
-      const mostRecentBlockStates = parsePromptIntoBlocks(mostRecentRun.prompt);
-      mostRecentBlockStates.forEach(block => {
-        content[block.id] = block.content;
-        console.log(`Found content for ${block.id}:`, block.content);
-      });
-      
-      console.log('Final previousRunContent from most recent run:', content);
-      return content;
-    }
-    
-    console.log('No runs found, returning undefined');
-    return undefined;
-  }, [currentExperiment, selectedForkRunId]);
+
 
   // Memoized previous experiment to prevent new references
   const memoizedPreviousExperiment = useMemo(() => {

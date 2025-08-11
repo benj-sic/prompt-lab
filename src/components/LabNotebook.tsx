@@ -8,11 +8,11 @@ import {
   Play,
   Clock,
   Calendar,
-  Target,
   ChevronRight,
   ChevronDown,
   Copy,
-  CheckCheck
+  CheckCheck,
+  Hash
 } from 'lucide-react';
 import { Experiment, ExperimentRun, RunComparison } from '../types';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
@@ -22,7 +22,7 @@ interface LabNotebookProps {
   onSelectExperiment: (experiment: Experiment) => void;
   onResumeExperiment: (experiment: Experiment) => void;
   onDelete: (id: string) => void;
-  onExport: () => void;
+  onExport: (experiments?: Experiment[]) => void;
 }
 
 interface DetailedExperimentViewProps {
@@ -30,7 +30,6 @@ interface DetailedExperimentViewProps {
   isVisible: boolean;
   onClose: () => void;
   onResumeExperiment: (experiment: Experiment) => void;
-  onExport: (experiment: Experiment) => void;
 }
 
 const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
@@ -38,7 +37,6 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
   isVisible,
   onClose,
   onResumeExperiment,
-  onExport,
 }) => {
   const [collapsedComparisons, setCollapsedComparisons] = useState<Record<string, boolean>>({});
   const [copiedPrompt, setCopiedPrompt] = useState(false);
@@ -102,6 +100,7 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
 ## Experiment Overview
 
 **Title:** ${experiment.title || 'Untitled'}
+**Client:** ${experiment.client || 'Not specified'}
 **Objective:** ${experiment.hypothesis || experiment.objective || 'Not specified'}
 **Total Runs:** ${experiment.runs.length}
 **Date:** ${new Date(experiment.timestamp).toLocaleDateString()}
@@ -339,6 +338,7 @@ ${finalPrompt.split('\n\n').map(section => {
               </h3>
               <div className="w-full px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText text-sm leading-relaxed space-y-2">
                 <p><strong>Title:</strong> {experiment.title || 'Untitled'}</p>
+                <p><strong>Client:</strong> {experiment.client || 'Not specified'}</p>
                 <p><strong>Objective:</strong> {experiment.hypothesis || experiment.objective || 'Not specified'}</p>
                 <p><strong>Total Runs:</strong> {experiment.runs.length}</p>
                 <p><strong>Date:</strong> {new Date(experiment.timestamp).toLocaleDateString()}</p>
@@ -608,7 +608,7 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedExperiment, setSelectedExperiment] = useState<Experiment | null>(null);
   const [showDetailedView, setShowDetailedView] = useState(false);
-  const [groupByClient, setGroupByClient] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<string>('all');
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString();
@@ -628,26 +628,29 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
   });
   
   const allExperiments = validExperiments;
+
+  const clients = ['all', ...Array.from(new Set(allExperiments.map(exp => exp.client).filter(Boolean))) as string[]];
+
+  React.useEffect(() => {
+    if (experiments.length > 0) {
+      const lastExperiment = experiments.sort((a, b) => b.timestamp - a.timestamp)[0];
+      if (lastExperiment.client) {
+        setSelectedClient(lastExperiment.client);
+      }
+    }
+  }, [experiments]);
     
   const filteredExperiments = allExperiments
-    .filter(experiment => 
-      experiment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (experiment.client && experiment.client.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      experiment.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      experiment.hypothesis.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    .filter(experiment => {
+      const searchMatch =
+        experiment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (experiment.client && experiment.client.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        experiment.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        experiment.hypothesis.toLowerCase().includes(searchTerm.toLowerCase());
+      const clientMatch = selectedClient === 'all' || experiment.client === selectedClient;
+      return searchMatch && clientMatch;
+    })
     .sort((a, b) => b.timestamp - a.timestamp); // Sort newest to oldest
-
-  const groupedExperiments = groupByClient
-    ? filteredExperiments.reduce((acc, experiment) => {
-        const client = experiment.client || 'Unassigned';
-        if (!acc[client]) {
-          acc[client] = [];
-        }
-        acc[client].push(experiment);
-        return acc;
-      }, {} as Record<string, Experiment[]>)
-    : null;
 
   return (
     <div className="space-y-6">
@@ -658,16 +661,17 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Lab Notebook</h2>
         </div>
         <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setGroupByClient(prev => !prev)}
-            className={`flex items-center space-x-1 px-3 py-1 text-sm rounded transition-colors ${
-              groupByClient
-                ? 'bg-blue-500 text-white'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
-            }`}
+          <select
+            value={selectedClient}
+            onChange={(e) => setSelectedClient(e.target.value)}
+            className="flex items-center space-x-1 px-3 py-1 text-sm rounded transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 bg-transparent border border-gray-300 dark:border-gray-600"
           >
-            <span>Group by Client</span>
-          </button>
+            {clients.map(client => (
+              <option key={client} value={client}>
+                {client === 'all' ? 'All Clients' : client}
+              </option>
+            ))}
+          </select>
           {experiments.length > validExperiments.length && (
             <button
               onClick={() => {
@@ -683,7 +687,7 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
             </button>
           )}
           <button
-            onClick={onExport}
+            onClick={() => onExport(filteredExperiments)}
             className="flex items-center space-x-1 px-3 py-1 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
           >
             <Download className="h-4 w-4" />
@@ -713,73 +717,6 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
             <NotebookText className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
             <p>{searchTerm ? 'No experiments found matching your search.' : 'No experiments yet. Run your first experiment to see it here!'}</p>
           </div>
-        ) : groupByClient && groupedExperiments ? (
-          Object.entries(groupedExperiments).map(([client, experiments]) => (
-            <div key={client}>
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">{client}</h3>
-              <div className="space-y-4">
-                {experiments.map((experiment) => (
-                  <div
-                    key={experiment.id}
-                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-                    onClick={() => {
-                      setSelectedExperiment(experiment);
-                      setShowDetailedView(true);
-                    }}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        {/* Experiment Header */}
-                        <div className="flex items-center space-x-2 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {experiment.title}
-                          </h3>
-                        </div>
-
-                        {/* Experiment Meta */}
-                        <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400 mb-3">
-                          <div className="flex items-center space-x-1">
-                            <Calendar className="h-3 w-3" />
-                            <span>{formatDate(experiment.timestamp)}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <Target className="h-3 w-3" />
-                            <span>{experiment.runs?.length || 0} runs</span>
-                          </div>
-                        </div>
-
-                        {/* Objective */}
-                        {(experiment.hypothesis || experiment.objective) && (
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            <strong>Objective:</strong> {experiment.hypothesis || experiment.objective}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex items-center space-x-1">
-                        
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteModal({
-                              isVisible: true,
-                              experimentId: experiment.id,
-                              experimentTitle: experiment.title,
-                            });
-                          }}
-                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                          title="Delete experiment"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))
         ) : (
           filteredExperiments.map((experiment) => (
             <div
@@ -795,6 +732,7 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
                   {/* Experiment Header */}
                   <div className="flex items-center space-x-2 mb-2">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {experiment.client && <span className="font-medium text-gray-500 dark:text-gray-400">{experiment.client} / </span>}
                       {experiment.title}
                     </h3>
                   </div>
@@ -806,7 +744,7 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
                       <span>{formatDate(experiment.timestamp)}</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Target className="h-3 w-3" />
+                      <Hash className="h-3 w-3" />
                       <span>{experiment.runs?.length || 0} runs</span>
                     </div>
                   </div>
@@ -903,7 +841,7 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
             setSelectedExperiment(null);
           }}
           onResumeExperiment={onResumeExperiment}
-          onExport={onExport}
+
         />
       )}
     </div>

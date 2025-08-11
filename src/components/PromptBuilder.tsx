@@ -119,6 +119,7 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
   const [showParameters, setShowParameters] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>(uploadedFiles);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [userHasEdited, setUserHasEdited] = useState(false);
   const [isParsingPDF, setIsParsingPDF] = useState(false);
   
   const initializedRef = useRef(false);
@@ -260,6 +261,7 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
     // In fork mode, also mark that we've made user changes to prevent auto-reset
     if (isForkMode) {
       console.log('User edit in fork mode - preventing auto-reset');
+      setUserHasEdited(true);
     }
     
     const updatedBlockStates = blockStates.map(block => 
