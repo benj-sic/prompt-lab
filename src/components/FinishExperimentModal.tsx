@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, BookOpen, Check } from 'lucide-react';
+import { X, NotebookPen, Check, Copy, CheckCheck } from 'lucide-react';
 import { Experiment, LabNotebookEntry } from '../types';
 
 interface FinishExperimentModalProps {
@@ -18,6 +18,13 @@ export const FinishExperimentModal: React.FC<FinishExperimentModalProps> = ({
 }) => {
   const [insights, setInsights] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+
+  // Get the final prompt from the most recent run
+  const finalPrompt = experiment.runs.length > 0 ? experiment.runs[experiment.runs.length - 1].prompt : '';
+  const finalRun = experiment.runs.length > 0 ? experiment.runs[experiment.runs.length - 1] : null;
+
+  
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -60,6 +67,12 @@ ${evaluation ? `**Evaluation:**
 - **Date:** ${new Date(experiment.timestamp).toLocaleDateString()}
 - **Total Runs:** ${experiment.runs.length}
 - **Objective:** ${experiment.hypothesis || experiment.description || 'Not specified'}
+${finalRun?.uploadedFiles?.length ? `- **File Attached:** ${finalRun.uploadedFiles[0].name}` : ''}
+
+## Final Prompt
+\`\`\`
+${finalPrompt}
+\`\`\`
 
 ## Analysis Results
 **Insights & Recommendations:**
@@ -95,48 +108,83 @@ ${generateRunsSection()}`;
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-weave-light-surface dark:bg-weave-dark-surface rounded-xl shadow-2xl w-full max-w-2xl"
+          className="bg-weave-light-surface dark:bg-weave-dark-surface rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-weave-light-border dark:border-weave-dark-border">
             <div className="flex items-center space-x-3">
-              <BookOpen className="h-6 w-6 text-weave-light-accent dark:text-weave-dark-accent" />
+              <NotebookPen className="h-6 w-6 text-weave-light-accent dark:text-weave-dark-accent" />
               <h2 className="text-xl font-semibold text-weave-light-primary dark:text-weave-dark-primary">
                 Finish Experiment
               </h2>
             </div>
             <button
               onClick={onCancel}
-              className="text-weave-light-secondary dark:text-weave-dark-secondary hover:text-weave-light-primary dark:hover:text-weave-dark-primary transition-colors"
+              className="text-weave-light-secondary dark:text-weave-light-secondary hover:text-weave-light-primary dark:hover:text-weave-dark-primary transition-colors"
             >
               <X className="h-6 w-6" />
             </button>
           </div>
 
           {/* Content */}
-          <div className="p-6 space-y-6">
+          <div className="p-6 space-y-4">
             {/* Experiment Info */}
-            <div className="bg-weave-light-accentMuted dark:bg-weave-dark-accentMuted p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary mb-2">
+            <div>
+              <h3 className="block text-base font-semibold text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
                 Experiment Details
               </h3>
-              <div className="text-sm text-weave-light-secondary dark:text-weave-dark-secondary space-y-1">
+              <div className="w-full px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText text-sm leading-relaxed space-y-2">
                 <p><strong>Title:</strong> {experiment.title || 'Untitled Experiment'}</p>
+                <p><strong>Hypothesis/Objective:</strong> {experiment.hypothesis || 'No hypothesis specified'}</p>
                 <p><strong>Runs:</strong> {experiment.runs.length}</p>
                 <p><strong>Created:</strong> {new Date(experiment.timestamp).toLocaleDateString()}</p>
               </div>
             </div>
 
+            {/* Final Prompt Section */}
+            {finalPrompt && (
+              <div>
+                <h3 className="block text-base font-semibold text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
+                  Final Prompt
+                </h3>
+                <div className="relative">
+                  <div className="w-full px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText text-sm leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto pr-12">
+                    {finalPrompt.split('\n\n').map((section, index) => {
+                      if (!section.trim() || section.includes('[PDF STUDY REPORT:')) return null;
+                      
+                      const colonIndex = section.indexOf(':');
+                      if (colonIndex === -1) return <div key={index} className="mb-2">{section}</div>;
+                      
+                      const title = section.substring(0, colonIndex + 1);
+                      const content = section.substring(colonIndex + 1).trim();
+                      
+                      return (
+                        <div key={index} className="mb-3">
+                          <span className="font-bold text-weave-light-primary dark:text-weave-dark-primary">
+                            {title}
+                          </span>
+                          <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                            {content}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                </div>
+              </div>
+            )}
+
             {/* Insights & Recommendations */}
             <div>
-              <label className="block text-sm font-medium text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
+              <label className="block text-base font-semibold text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
                 Insights & Recommendations <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={insights}
                 onChange={(e) => setInsights(e.target.value)}
                 rows={6}
-                className="w-full px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-weave-light-accent dark:focus:ring-weave-dark-accent bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText resize-none"
+                className="w-full px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg focus:outline-none focus:ring-2 focus:ring-weave-light-accent dark:focus:ring-weave-dark-accent bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText text-sm resize-none"
                 placeholder="What were the main insights from this experiment? What worked well, what didn't, and what would you do differently next time?"
               />
             </div>

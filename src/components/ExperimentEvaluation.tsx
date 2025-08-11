@@ -220,7 +220,7 @@ export const ExperimentEvaluation: React.FC<ExperimentEvaluationProps> = ({
                     Run {currentRunNumber} Prompt
                   </h5>
                   <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded p-3 max-h-32 overflow-y-auto">
-                    <div className="text-xs font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap">
+                    <div className="text-sm leading-relaxed text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap font-sans">
                       {run.prompt}
                     </div>
                   </div>
@@ -233,7 +233,7 @@ export const ExperimentEvaluation: React.FC<ExperimentEvaluationProps> = ({
                       Run 1 Prompt
                     </h5>
                     <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-3 max-h-32 overflow-y-auto">
-                      <div className="text-xs font-mono text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                      <div className="text-sm leading-relaxed text-gray-600 dark:text-gray-400 whitespace-pre-wrap font-sans">
                         {originalPrompt}
                       </div>
                     </div>
@@ -247,7 +247,7 @@ export const ExperimentEvaluation: React.FC<ExperimentEvaluationProps> = ({
                       Previous Prompt
                     </h5>
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-3 max-h-32 overflow-y-auto">
-                      <div className="text-xs font-mono text-blue-700 dark:text-blue-300 whitespace-pre-wrap">
+                      <div className="text-sm leading-relaxed text-blue-700 dark:text-blue-300 whitespace-pre-wrap font-sans">
                         {previousRun.prompt}
                       </div>
                     </div>

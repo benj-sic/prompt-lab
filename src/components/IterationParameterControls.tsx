@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 interface IterationParameterControlsProps {
   model: string;
@@ -40,19 +40,7 @@ export const IterationParameterControls: React.FC<IterationParameterControlsProp
   previousRunNumber,
 }) => {
   const [showParameters, setShowParameters] = useState(false);
-  const getTemperatureDescription = (temp: number) => {
-    if (temp <= 0.3) return 'Focused (Consistent)';
-    if (temp <= 0.7) return 'Balanced (Creative)';
-    if (temp <= 1.0) return 'Creative (Varied)';
-    return 'Very Creative (Unpredictable)';
-  };
 
-  const getTemperatureColor = (temp: number) => {
-    if (temp <= 0.3) return 'text-green-600';
-    if (temp <= 0.7) return 'text-blue-600';
-    if (temp <= 1.0) return 'text-orange-600';
-    return 'text-red-600';
-  };
 
   const handleParameterChange = (parameter: string, value: any) => {
     // Only allow changing one parameter at a time
@@ -79,26 +67,9 @@ export const IterationParameterControls: React.FC<IterationParameterControlsProp
     return (changedParameter !== null && changedParameter !== parameter) || changedBlock !== null;
   };
 
-  const getParameterChangeIndicator = (parameter: string, currentValue: any, lastValue: any) => {
-    if (currentValue !== lastValue) {
-      return (
-        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-          Changed
-        </span>
-      );
-    }
-    return null;
-  };
+  // Removed getParameterChangeIndicator function - no longer needed
 
-  const hasAnyChanges = model !== lastRunParameters.model || 
-                    temperature !== lastRunParameters.temperature || 
-                    maxTokens !== lastRunParameters.maxTokens;
 
-  const resetAllParameters = () => {
-    onResetParameter('model');
-    onResetParameter('temperature');
-    onResetParameter('maxTokens');
-  };
 
   return (
     <div className="space-y-3">
@@ -109,26 +80,11 @@ export const IterationParameterControls: React.FC<IterationParameterControlsProp
         >
           {showParameters ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           <span>Model Parameters</span>
-          <span className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary">
-            (Model: {model}, Temperature: {temperature}, Tokens: {maxTokens})
-          </span>
-          {changedParameter && (
-            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-              {changedParameter} Changed
-            </span>
-          )}
+
+
         </button>
         
-        {/* Reset All Button - Show for run 3 and beyond */}
-        {(currentRunNumber || 0) >= 3 && hasAnyChanges && (
-          <button
-            onClick={resetAllParameters}
-            className="flex items-center space-x-1 px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-          >
-            <RotateCcw className="h-3 w-3" />
-            <span>Reset All</span>
-          </button>
-        )}
+        {/* Individual reset buttons are shown for each changed parameter above */}
       </div>
     
       <AnimatePresence>
@@ -154,7 +110,6 @@ export const IterationParameterControls: React.FC<IterationParameterControlsProp
                   Model
                 </label>
                 <div className="flex items-center space-x-2">
-                  {getParameterChangeIndicator('model', model, lastRunParameters.model)}
                   {model !== lastRunParameters.model && (
                     <button
                       onClick={() => onResetParameter('model')}
@@ -176,10 +131,7 @@ export const IterationParameterControls: React.FC<IterationParameterControlsProp
                 <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
                 <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
               </select>
-              <div className="flex justify-between text-xs text-weave-light-secondary dark:text-weave-dark-secondary mt-1">
-                <span>Run {previousRunNumber || 'Previous'}: {lastRunParameters.model}</span>
-                <span>Run {currentRunNumber || 'Current'}: {model}</span>
-              </div>
+
             </div>
 
             {/* Temperature Control */}
@@ -192,13 +144,9 @@ export const IterationParameterControls: React.FC<IterationParameterControlsProp
             }`}>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-weave-light-secondary dark:text-weave-dark-secondary">
-                  Creativity Level
+                  Temperature: {temperature}
                 </label>
                 <div className="flex items-center space-x-2">
-                  <span className={`text-sm font-medium ${getTemperatureColor(temperature)}`}>
-                    {getTemperatureDescription(temperature)}
-                  </span>
-                  {getParameterChangeIndicator('temperature', temperature, lastRunParameters.temperature)}
                   {temperature !== lastRunParameters.temperature && (
                     <button
                       onClick={() => onResetParameter('temperature')}
@@ -222,23 +170,15 @@ export const IterationParameterControls: React.FC<IterationParameterControlsProp
                 }`}
               />
               <div className="flex justify-between text-xs text-weave-light-secondary dark:text-weave-dark-secondary mt-1">
-                <span>0 (Focused)</span>
-                <span>1 (Balanced)</span>
-                <span>2 (Creative)</span>
+                <span>0</span>
+                <span>1</span>
+                <span>2</span>
               </div>
+              <p className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary mt-1">
+                Controls randomness in responses. Lower values give consistent, focused answers. Higher values create more creative, varied responses.
+              </p>
               
-              {/* Temperature Explanation */}
-              <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>Temperature</strong> controls randomness in responses. Lower values (0-0.3) give consistent, focused answers. 
-                  Higher values (0.7-2.0) create more creative, varied responses. For most tasks, 0.7-1.0 works well.
-                </p>
-              </div>
-              
-              <div className="flex justify-between text-xs text-weave-light-secondary dark:text-weave-dark-secondary mt-2">
-                <span>Run {previousRunNumber || 'Previous'}: {lastRunParameters.temperature}</span>
-                <span>Run {currentRunNumber || 'Current'}: {temperature}</span>
-              </div>
+
             </div>
 
             {/* Max Tokens Control */}
@@ -254,7 +194,6 @@ export const IterationParameterControls: React.FC<IterationParameterControlsProp
                   Max Response Length: {maxTokens} tokens
                 </label>
                 <div className="flex items-center space-x-2">
-                  {getParameterChangeIndicator('maxTokens', maxTokens, lastRunParameters.maxTokens)}
                   {maxTokens !== lastRunParameters.maxTokens && (
                     <button
                       onClick={() => onResetParameter('maxTokens')}
@@ -285,10 +224,7 @@ export const IterationParameterControls: React.FC<IterationParameterControlsProp
               <p className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary mt-1">
                 Controls maximum response length. Higher values allow longer, more detailed responses.
               </p>
-              <div className="flex justify-between text-xs text-weave-light-secondary dark:text-weave-dark-secondary mt-2">
-                <span>Run {previousRunNumber || 'Previous'}: {lastRunParameters.maxTokens}</span>
-                <span>Run {currentRunNumber || 'Current'}: {maxTokens}</span>
-              </div>
+
             </div>
           </motion.div>
         )}

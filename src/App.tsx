@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, FlaskConical, Play, TrendingUp, ArrowRight, ArrowLeft, GitBranch } from 'lucide-react';
+import { FlaskConical, Play, TrendingUp, ArrowRight, ArrowLeft, ListStart, ListRestart, Split, NotebookPen, Network, GitBranchPlus, NotebookText } from 'lucide-react';
 import { PromptBuilder } from './components/PromptBuilder';
 import { DualPaneRunComparison } from './components/DualPaneRunComparison';
-import { ExperimentTreeVisualization } from './components/ExperimentTreeVisualization';
+
 import { ApiErrorDisplay } from './components/ApiErrorDisplay';
 import { LabNotebook } from './components/LabNotebook';
 import { PageLoader } from './components/PageLoader';
@@ -94,7 +94,7 @@ function App() {
 
   // State for UI controls
   const [activeTab, setActiveTab] = useState<'experiment' | 'handbook'>('experiment');
-  const [showTreeView, setShowTreeView] = useState(false);
+  
 
   // State for change tracking
   const [showChangeForm, setShowChangeForm] = useState(false);
@@ -118,10 +118,19 @@ function App() {
 
   // Helper function to parse a prompt back into block states
   const parsePromptIntoBlocks = (prompt: string, shouldAutoExpand: boolean = false): PromptBlockState[] => {
+    console.log('parsePromptIntoBlocks called with:', { prompt: prompt.substring(0, 100) + '...', shouldAutoExpand });
+    console.log('Full prompt length:', prompt.length);
+    console.log('Prompt contains double newlines:', prompt.includes('\n\n'));
+    console.log('Prompt newline count:', (prompt.match(/\n/g) || []).length);
+    
     const blocks: PromptBlockState[] = [];
     
     // Split the prompt by double newlines to get block sections
     const sections = prompt.split('\n\n');
+    console.log('Split into sections:', sections.length);
+    sections.forEach((section, index) => {
+      console.log(`Section ${index}:`, section.substring(0, 50) + '...');
+    });
     
     sections.forEach(section => {
       const lines = section.split('\n');
@@ -129,17 +138,22 @@ function App() {
         const blockNameLine = lines[0];
         const blockContent = lines.slice(1).join('\n');
         
+        console.log('Processing section:', { blockNameLine, contentLength: blockContent.length });
+        
         // Find matching block by name
         const matchingBlock = PROMPT_BLOCKS.find(block => 
           blockNameLine.includes(block.name) || blockNameLine.includes(block.id)
         );
         
         if (matchingBlock) {
+          console.log('Found matching block:', matchingBlock.id);
           blocks.push({
             id: matchingBlock.id,
             content: blockContent,
             isCollapsed: !shouldAutoExpand,
           });
+        } else {
+          console.log('No matching block found for:', blockNameLine);
         }
       }
     });
@@ -155,6 +169,7 @@ function App() {
       }
     });
     
+    console.log('parsePromptIntoBlocks returning:', blocks.map(b => ({ id: b.id, contentLength: b.content.length })));
     return blocks;
   };
 
@@ -201,6 +216,11 @@ function App() {
   const [changedParameter, setChangedParameter] = useState<string | null>(null);
   const [changedBlock, setChangedBlock] = useState<string | null>(null);
   
+  // Flag to prevent useEffect interference during reset operations
+  // const [isResetting, setIsResetting] = useState(false);
+  // const resetTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // const isResettingRef = useRef(false);
+  
 
   
   // State for tracking evaluation feedback
@@ -238,6 +258,25 @@ function App() {
     });
     
     setExperiments(migratedExperiments);
+  }, []);
+  
+  // Cleanup effect to clear reset flags and timeouts
+  useEffect(() => {
+    return () => {
+      // if (resetTimeoutRef.current) {
+      //   clearTimeout(resetTimeoutRef.current);
+      // }
+      // isResettingRef.current = false;
+    };
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      // if (resetTimeoutRef.current) {
+      //   clearTimeout(resetTimeoutRef.current);
+      // }
+    };
   }, []);
 
 
@@ -372,6 +411,7 @@ function App() {
       temperature: runParameters.temperature,
       maxTokens: runParameters.maxTokens,
       output: '',
+      uploadedFiles: uploadedFiles,
     };
 
     // Initialize notebook entry with experiment setup
@@ -450,6 +490,9 @@ ${assembledPrompt}
       })();
 
       console.log('Using assembled prompt:', !!currentAssembledPrompt);
+      console.log('Final prompt length:', finalPrompt.length);
+      console.log('Final prompt preview:', finalPrompt.substring(0, 300) + '...');
+      console.log('Current block states for prompt building:', currentBlockStates.map(b => ({ id: b.id, contentLength: b.content.length })));
       console.log('Final prompt length:', finalPrompt.length);
       console.log('Final prompt preview:', finalPrompt.substring(0, 300) + '...');
 
@@ -591,69 +634,102 @@ ${assembledPrompt}
   }, []);
 
   const handleResetParameter = useCallback((parameter: string) => {
+    if (!currentExperiment) return;
+    
+    let baselineValue = lastRunParameters[parameter as keyof typeof lastRunParameters];
+    
+    // If we have a selected fork run, use its parameters as the baseline for reset
+    if (selectedForkRunId) {
+      const forkRun = currentExperiment.runs.find(r => r.id === selectedForkRunId);
+      if (forkRun) {
+        baselineValue = forkRun[parameter as keyof typeof forkRun] as any;
+      }
+    }
+    
     setRunParameters(prev => ({
       ...prev,
-      [parameter]: lastRunParameters[parameter as keyof typeof lastRunParameters]
+      [parameter]: baselineValue
     }));
     setChangedParameter(null);
-  }, [lastRunParameters]);
+  }, [lastRunParameters, currentExperiment, selectedForkRunId]);
 
   const handleBlockChange = useCallback((blockId: string | null) => {
+    console.log('handleBlockChange called:', {
+      blockId,
+      selectedForkRunId,
+      isForkMode: !!selectedForkRunId,
+      currentExperimentRuns: currentExperiment?.runs.length,
+      previousChangedBlock: changedBlock,
+      timestamp: new Date().toISOString()
+    });
     setChangedBlock(blockId);
     setChangedParameter(null); // Clear any parameter changes when block is changed
-  }, []);
+  }, [selectedForkRunId, currentExperiment, changedBlock]);
 
   const handleResetBlockContent = useCallback((blockId: string) => {
     if (!currentExperiment) return;
     
-    let lastContent = '';
+    console.log('handleResetBlockContent called for block:', blockId);
     
-    // If we have a selected fork run, reset to that run's content
+    // Set the resetting flag to prevent useEffect interference
+    // setIsResetting(true);
+    // isResettingRef.current = true;
+    
+    // Clear any existing timeout first
+    // if (resetTimeoutRef.current) {
+    //   clearTimeout(resetTimeoutRef.current);
+    // }
+    
+    let baselineContent = '';
+    
+    // Use the same simplified logic as PromptBuilder for consistency
     if (selectedForkRunId) {
+      // If we have a selected fork run, use its content as baseline
       const forkRun = currentExperiment.runs.find(r => r.id === selectedForkRunId);
       if (forkRun) {
-        // Extract block content from fork run's prompt
-        const promptLines = forkRun.prompt.split('\n\n');
-        for (const line of promptLines) {
-          if (line.startsWith(`${getBlockName(blockId)}:`)) {
-            lastContent = line.substring(line.indexOf(':') + 1).trim();
-            break;
-          }
-        }
+        const forkBlockStates = parsePromptIntoBlocks(forkRun.prompt);
+        const forkBlock = forkBlockStates.find(block => block.id === blockId);
+        baselineContent = forkBlock?.content || '';
+        console.log(`Using fork run content as baseline for ${blockId}:`, baselineContent);
       }
+    } else if (currentExperiment.runs.length > 0) {
+      // If no fork run is selected but we have runs, use the most recent run as baseline
+      const mostRecentRun = currentExperiment.runs[currentExperiment.runs.length - 1];
+      const mostRecentBlockStates = parsePromptIntoBlocks(mostRecentRun.prompt);
+      const mostRecentBlock = mostRecentBlockStates.find(block => block.id === blockId);
+      baselineContent = mostRecentBlock?.content || '';
+      console.log(`Using most recent run content as baseline for ${blockId}:`, baselineContent);
     } else {
-      // No fork run selected - use the original logic
-      if (currentExperiment.runs.length <= 1) {
-        // First run - reset to original experiment content
-        lastContent = currentExperiment.blockContent?.[blockId] || '';
-      } else {
-        // Subsequent runs - get content from previous run
-        const previousRun = currentExperiment.runs[currentExperiment.runs.length - 2];
-        // Extract block content from previous run's prompt
-        const promptLines = previousRun.prompt.split('\n\n');
-        for (const line of promptLines) {
-          if (line.startsWith(`${getBlockName(blockId)}:`)) {
-            lastContent = line.substring(line.indexOf(':') + 1).trim();
-            break;
-          }
-        }
-        // Fallback to original content if not found
-        if (!lastContent) {
-          lastContent = currentExperiment.blockContent?.[blockId] || '';
-        }
-      }
+      // No runs - use original experiment content
+      baselineContent = currentExperiment.blockContent?.[blockId] || '';
+      console.log(`Using original experiment content as baseline for ${blockId}:`, baselineContent);
     }
     
-    // Update current block states with the reset content
-    setCurrentBlockStates(prev => prev.map(block => 
-      block.id === blockId 
-        ? { ...block, content: lastContent }
-        : block
-    ));
+    console.log(`Resetting block ${blockId} to baseline content:`, baselineContent);
     
-    // Clear the changed block indicator
+    // Clear the changed block indicator first to prevent useEffect interference
     setChangedBlock(null);
-  }, [currentExperiment, selectedForkRunId, getBlockName]);
+    
+    // Update current block states with the reset content
+    setCurrentBlockStates(prev => {
+      const updated = prev.map(block => 
+        block.id === blockId 
+          ? { ...block, content: baselineContent }
+          : block
+      );
+      console.log('Updated currentBlockStates:', updated.map(b => ({ id: b.id, content: b.content })));
+      return updated;
+    });
+    
+    // Clear the resetting flag after state updates complete
+    // Use a longer delay to ensure all state updates have settled
+    // resetTimeoutRef.current = setTimeout(() => {
+      // setIsResetting(false);
+      // isResettingRef.current = false;
+      // resetTimeoutRef.current = null;
+      // console.log('Reset completed for block:', blockId, '- cleared changedBlock and updated content');
+    // }, 300); // Increased delay to ensure all state updates have settled
+  }, [currentExperiment, selectedForkRunId]);
 
 
 
@@ -701,11 +777,11 @@ ${assembledPrompt}
     }
     
     // Check block content changes
-    // If we have a selected fork run, compare against that run's content
-    // Otherwise, compare against the experiment's original block content
+    // Use the same logic as previousRunContent to determine baseline
     let baselineBlockStates: Record<string, string> = {};
     
     if (selectedForkRunId && currentExperiment) {
+      // If we have a selected fork run, compare against that run's content
       const forkRun = currentExperiment.runs.find(r => r.id === selectedForkRunId);
       if (forkRun) {
         // Extract block content from the fork run's prompt using consistent parsing
@@ -714,45 +790,88 @@ ${assembledPrompt}
           baselineBlockStates[block.id] = block.content;
         });
       }
+    } else if (currentExperiment.runs.length > 0) {
+      // If no fork run is selected but we have runs, use the most recent run as baseline
+      const mostRecentRun = currentExperiment.runs[currentExperiment.runs.length - 1];
+      const mostRecentBlockStates = parsePromptIntoBlocks(mostRecentRun.prompt);
+      mostRecentBlockStates.forEach(block => {
+        baselineBlockStates[block.id] = block.content;
+      });
     } else {
+      // No runs - use original experiment content
       baselineBlockStates = currentExperiment.blockContent || {};
     }
     
     // Use the most up-to-date block states for comparison
     const currentBlockStatesToUse = currentBlockStates;
     
+    // Track which blocks have actually changed content
+    const changedBlockIds = new Set<string>();
+    
     currentBlockStatesToUse.forEach(block => {
       const lastContent = baselineBlockStates[block.id] || '';
       if (block.content !== lastContent && block.content.trim() !== '') {
-        changes.push(`${block.id} content modified`);
+        changes.push(`${getBlockName(block.id)} content modified`);
+        changedBlockIds.add(block.id);
       }
     });
     
     // If we have a changed block indicator, trust it even if content comparison fails
     // This handles timing issues where the indicator is set but content hasn't updated yet
-    if (changedBlock && !changes.some(change => change.includes(changedBlock))) {
-      changes.push(`${changedBlock} content modified`);
+    if (changedBlock && !changedBlockIds.has(changedBlock)) {
+      changes.push(`${getBlockName(changedBlock)} content modified`);
+      changedBlockIds.add(changedBlock);
     }
     
-
+    // Debug logging to help identify the issue
+    console.log('Validation debug:', {
+      changes,
+      changedBlockIds: Array.from(changedBlockIds),
+      changedBlock,
+      baselineBlockStates,
+      currentBlockStates: currentBlockStatesToUse.map(b => ({ id: b.id, content: b.content })),
+      runParameters,
+      baselineParameters
+    });
     
-    // Validation logic
-    if (changes.length > 1) {
+    // Validation logic - allow either one parameter change OR one block content change
+    // Count parameter changes and block content changes separately
+    const parameterChanges = changes.filter(change => 
+      change.includes('Temperature:') || change.includes('Max Tokens:') || change.includes('Model:')
+    );
+    const blockChanges = changes.filter(change => 
+      change.includes('content modified')
+    );
+    
+    // Allow either one parameter change OR one block content change, but not multiple of the same type
+    if (parameterChanges.length > 1) {
       return { canRun: false, reason: 'Only one parameter can be changed at a time', changes };
     }
     
+    // Fix: Only show the error if there are actually multiple different blocks changed
+    if (changedBlockIds.size > 1) {
+      console.log('Validation failed: Multiple blocks changed:', Array.from(changedBlockIds));
+      return { canRun: false, reason: 'Only one component can be changed at a time', changes };
+    }
+    
     if (changes.length === 0) {
+      console.log('Validation failed: No changes detected');
       return { canRun: false, reason: '', changes };
     }
+    
+    console.log('Validation passed: Changes detected:', changes);
 
     return { canRun: true, reason: '', changes };
   };
 
   const handleNextRun = () => {
+    console.log('handleNextRun called - checking validation...');
     const validation = getRunValidationStatus();
+    console.log('Validation result:', validation);
     
     if (!validation.canRun) {
       // Show user feedback about why they can't run
+      console.log('Validation failed, showing alert:', validation.reason);
       alert(validation.reason);
       return;
     }
@@ -770,15 +889,26 @@ ${assembledPrompt}
       return;
     }
 
+    // Build the prompt from current block states to include any modifications
+    const assembledPrompt = currentBlockStates
+      .filter(block => block.content.trim() !== '')
+      .map(block => {
+        const blockConfig = PROMPT_BLOCKS.find((b: PromptBlock) => b.id === block.id);
+        const blockName = blockConfig?.name || block.id;
+        return `${blockName}:\n${block.content}`;
+      })
+      .join('\n\n');
+
     const nextRun: ExperimentRun = {
       id: Date.now().toString(),
       timestamp: Date.now(),
-      prompt: forkRun.prompt, // Start with the fork run's prompt
+      prompt: assembledPrompt, // Use the assembled prompt from current block states
       model: runParameters.model,
       temperature: runParameters.temperature,
       maxTokens: runParameters.maxTokens,
       output: '',
       runNotes: `Change: ${validation.changes?.[0] || 'Parameter modified'}`,
+      uploadedFiles: uploadedFiles,
       // Branching fields
       parentRunId: selectedForkRunId || forkRun.id,
       branchName: `iteration-${Date.now()}`,
@@ -811,6 +941,10 @@ ${assembledPrompt}
     
     // Update last run parameters
     setLastRunParameters(runParameters);
+    
+    // Automatically advance the fork point to the run we just created
+    // This ensures that the next iteration will compare against the most recent run
+    setSelectedForkRunId(nextRun.id);
     
     // Go to loading step
     setWorkflowStep('loading');
@@ -911,7 +1045,7 @@ ${assembledPrompt}
     
     // Clear any previous fork run selection to ensure no auto-selection
     setDualPaneSelectedForkRunId('');
-    setSelectedForkRunId(null);
+    setSelectedForkRunId('');
     
     // Determine the appropriate workflow step based on experiment state
     if (experiment.runs.length === 0) {
@@ -932,7 +1066,7 @@ ${assembledPrompt}
     
     // Clear any previous fork run selection to ensure no auto-selection
     setDualPaneSelectedForkRunId('');
-    setSelectedForkRunId(null);
+    setSelectedForkRunId('');
     
     // Always go to dual pane comparison for resuming experiments
     setWorkflowStep('comparison');
@@ -1029,26 +1163,56 @@ ${assembledPrompt}
 
   // Memoized previous run content to prevent re-calculations
   const previousRunContent = useMemo(() => {
-    if (!currentExperiment || !selectedForkRunId) {
+    console.log('Calculating previousRunContent:', { currentExperiment, selectedForkRunId });
+    
+    if (!currentExperiment) {
+      console.log('No currentExperiment, returning undefined');
       return undefined;
     }
-    // Get content from selected fork run
-    const forkRun = currentExperiment.runs.find(r => r.id === selectedForkRunId);
-    if (!forkRun) return undefined;
     
-    const content: Record<string, string> = {};
-    const promptLines = forkRun.prompt.split('\n\n');
-    
-    PROMPT_BLOCKS.forEach(block => {
-      for (const line of promptLines) {
-        if (line.startsWith(`${block.name}:`)) {
-          content[block.id] = line.substring(line.indexOf(':') + 1).trim();
-          break;
-        }
+    // If we have a selected fork run, use that as the baseline
+    if (selectedForkRunId) {
+      const forkRun = currentExperiment.runs.find(r => r.id === selectedForkRunId);
+      console.log('Fork run found:', forkRun);
+      
+      if (!forkRun) {
+        console.log('No fork run found, returning undefined');
+        return undefined;
       }
-    });
+      
+      const content: Record<string, string> = {};
+      
+      // Use the parsePromptIntoBlocks function for consistent parsing
+      const forkBlockStates = parsePromptIntoBlocks(forkRun.prompt);
+      forkBlockStates.forEach(block => {
+        content[block.id] = block.content;
+        console.log(`Found content for ${block.id}:`, block.content);
+      });
+      
+      console.log('Final previousRunContent from fork run:', content);
+      return content;
+    }
     
-    return content;
+    // If no fork run is selected but we have runs, use the most recent run as baseline
+    if (currentExperiment.runs.length > 0) {
+      const mostRecentRun = currentExperiment.runs[currentExperiment.runs.length - 1];
+      console.log('Using most recent run as baseline:', mostRecentRun);
+      
+      const content: Record<string, string> = {};
+      
+      // Use the parsePromptIntoBlocks function for consistent parsing
+      const mostRecentBlockStates = parsePromptIntoBlocks(mostRecentRun.prompt);
+      mostRecentBlockStates.forEach(block => {
+        content[block.id] = block.content;
+        console.log(`Found content for ${block.id}:`, block.content);
+      });
+      
+      console.log('Final previousRunContent from most recent run:', content);
+      return content;
+    }
+    
+    console.log('No runs found, returning undefined');
+    return undefined;
   }, [currentExperiment, selectedForkRunId]);
 
   // Memoized previous experiment to prevent new references
@@ -1056,12 +1220,142 @@ ${assembledPrompt}
     return currentExperiment || undefined;
   }, [currentExperiment]);
 
+  // Initialize currentBlockStates when fork run changes or when experiment changes
+  useEffect(() => {
+    if (!currentExperiment) return;
+    
+    if (selectedForkRunId) {
+      // If we have a selected fork run, use that
+      const forkRun = currentExperiment.runs.find(r => r.id === selectedForkRunId);
+      if (forkRun) {
+        const parsed = parsePromptIntoBlocks(forkRun.prompt, true);
+        setCurrentBlockStates(parsed);
+        console.log('Initialized currentBlockStates from fork run:', {
+          selectedForkRunId,
+          parsedBlockStates: parsed
+        });
+        
+        // Clear any existing change indicators since we're starting fresh from the fork
+        setChangedParameter(null);
+        setChangedBlock(null);
+      }
+    } else if (currentExperiment.runs.length > 0) {
+      // If no fork run is selected but we have runs, use the most recent run
+      const mostRecentRun = currentExperiment.runs[currentExperiment.runs.length - 1];
+      const parsed = parsePromptIntoBlocks(mostRecentRun.prompt, true);
+      setCurrentBlockStates(parsed);
+      console.log('Initialized currentBlockStates from most recent run:', {
+        mostRecentRunId: mostRecentRun.id,
+        parsedBlockStates: parsed
+      });
+      
+      // Auto-select the most recent run as the fork point if we're in iteration mode
+      // This ensures that when there's only one run, it becomes the starting point for iteration
+      if (workflowStep === 'iteration') {
+        setSelectedForkRunId(mostRecentRun.id);
+        console.log('Auto-selected most recent run as fork point for iteration');
+      }
+    } else {
+      // No runs - use original experiment content
+      const parsed = parsePromptIntoBlocks('', true);
+      setCurrentBlockStates(parsed);
+      console.log('Initialized currentBlockStates from original experiment content');
+    }
+  }, [selectedForkRunId, currentExperiment, workflowStep]);
+  
+  // Recalculate changed block when fork run changes
+  useEffect(() => {
+    if (!currentExperiment || !currentBlockStates.length) {
+      console.log('useEffect skipped - isResetting:');
+      return;
+    }
+    
+    // Add additional guard to prevent running during rapid state changes
+    if (changedBlock !== null) {
+      console.log('useEffect skipped - changedBlock already set by user');
+      return;
+    }
+    
+    // Add debouncing to prevent rapid successive calls
+    const timeoutId = setTimeout(() => {
+      // Double-check that we're still not resetting and changedBlock is still null
+      if (changedBlock !== null) {
+        console.log('useEffect skipped - state changed during debounce');
+        return;
+      }
+      
+      console.log('Recalculating changed block - current changedBlock:', changedBlock);
+      console.log('Current block states:', currentBlockStates.map(b => ({ id: b.id, content: b.content })));
+      
+      // If we have a fork run, check which blocks have changed from it
+      if (selectedForkRunId) {
+        const forkRun = currentExperiment.runs.find(r => r.id === selectedForkRunId);
+        if (forkRun) {
+          const forkBlockStates = parsePromptIntoBlocks(forkRun.prompt);
+          console.log('Fork run block states:', forkBlockStates.map(b => ({ id: b.id, content: b.content })));
+          
+          const changedBlockId = currentBlockStates.find(block => {
+            const forkBlock = forkBlockStates.find(fb => fb.id === block.id);
+            const hasChanged = forkBlock && block.content !== forkBlock.content;
+            if (hasChanged) {
+              console.log(`Block ${block.id} has changed:`, {
+                current: block.content,
+                baseline: forkBlock.content,
+                isEqual: block.content === forkBlock.content
+              });
+            }
+            return hasChanged;
+          })?.id || null;
+          
+          console.log('Setting changedBlock from fork run:', changedBlockId, 'previous:', changedBlock);
+          // Only set if the user hasn't explicitly set a different block and we're not in the middle of a reset
+          if (changedBlock === null && changedBlockId !== null) {
+            setChangedBlock(changedBlockId);
+            console.log('Recalculated changed block after fork run change:', changedBlockId);
+          } else if (changedBlock !== null) {
+            console.log('Keeping user-set changedBlock:', changedBlock, 'instead of auto-setting:', changedBlockId);
+          }
+        }
+      } else if (currentExperiment.runs.length > 0) {
+        // If no fork run is selected, check against the most recent run
+        const mostRecentRun = currentExperiment.runs[currentExperiment.runs.length - 1];
+        const mostRecentBlockStates = parsePromptIntoBlocks(mostRecentRun.prompt);
+        console.log('Most recent run block states:', mostRecentBlockStates.map(b => ({ id: b.id, content: b.content })));
+        
+        const changedBlockId = currentBlockStates.find(block => {
+          const mostRecentBlock = mostRecentBlockStates.find(mrb => mrb.id === block.id);
+          const hasChanged = mostRecentBlock && block.content !== mostRecentBlock.content;
+          if (hasChanged) {
+            console.log(`Block ${block.id} has changed:`, {
+              current: block.content,
+              baseline: mostRecentBlock.content,
+              isEqual: block.content === mostRecentBlock.content
+            });
+          }
+          return hasChanged;
+        })?.id || null;
+        
+        console.log('Setting changedBlock from most recent run:', changedBlockId, 'previous:', changedBlock);
+        // Only set if the user hasn't explicitly set a different block and we're not in the middle of a reset
+        if (changedBlock === null && changedBlockId !== null) {
+          setChangedBlock(changedBlockId);
+          console.log('Recalculated changed block against most recent run:', changedBlockId);
+        } else if (changedBlock !== null) {
+          console.log('Keeping user-set changedBlock:', changedBlock, 'instead of auto-setting:', changedBlockId);
+        }
+      }
+    }, 100); // Small delay to debounce rapid changes
+    
+    return () => clearTimeout(timeoutId);
+  }, [selectedForkRunId, currentExperiment, changedBlock, currentBlockStates]);
+  
   // Create a stable key for the PromptBuilder that includes block states
   const promptBuilderKey = useMemo(() => {
-    // Include the fork run ID in the key so PromptBuilder re-mounts when fork run changes
-    const key = selectedForkRunId ? `fork-${selectedForkRunId}` : 'default';
+    // Only re-mount when the experiment changes, not when fork run changes
+    // This prevents losing the changedBlock state during iterations
+    const key = currentExperiment?.id ? `experiment-${currentExperiment.id}` : 'default';
     return key;
-  }, [selectedForkRunId]);
+  }, [currentExperiment?.id]);
 
   const renderWorkflowStep = () => {
     switch (workflowStep) {
@@ -1143,9 +1437,9 @@ ${assembledPrompt}
                 onBlockChanges={handleBlockChanges}
                 onBlockStatesChange={handleBlockStatesChange}
                 onParametersChange={handleParametersChange}
-                onResetBlockContent={handleResetBlockContent}
                 onBlockChange={handleBlockChange}
                 onParameterChange={handleParameterChange}
+                onResetBlock={handleResetBlockContent}
                 changedParameter={changedParameter}
                 changedBlock={changedBlock}
                 onFilesChange={handleFilesChange}
@@ -1174,7 +1468,7 @@ ${assembledPrompt}
                   }`}
                 >
                   <Play className="h-6 w-6" />
-                  <span>{isLoading ? 'Running...' : !apiKeys.gemini ? 'No API Key' : 'Start Experiment'}</span>
+                  <span>{isLoading ? 'Running...' : !apiKeys.gemini ? 'No API Key' : 'Run'}</span>
                 </button>
               </div>
             )}
@@ -1264,7 +1558,7 @@ ${assembledPrompt}
                         : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                     }`}
                   >
-                    <ArrowRight className="h-4 w-4" />
+                    <ListStart className="h-4 w-4" />
                     <span>Build Prompt</span>
                   </button>
                 </div>
@@ -1363,47 +1657,13 @@ ${assembledPrompt}
                       onClick={handleFinishExperiment}
                       className="flex items-center space-x-1 px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                     >
-                      <TrendingUp className="h-4 w-4" />
+                      <NotebookPen className="h-4 w-4" />
                       <span>Finish & Summarize</span>
                     </button>
-                    {currentExperiment.runs.length > 1 && (
-                      <button
-                        onClick={() => setShowTreeView(!showTreeView)}
-                        className={`flex items-center space-x-1 px-3 py-1 text-sm rounded-lg transition-colors ${
-                          showTreeView
-                            ? 'bg-weave-light-accent dark:bg-weave-dark-accent text-white'
-                            : 'border border-weave-light-border dark:border-weave-dark-border text-weave-light-secondary dark:text-weave-dark-secondary hover:text-weave-light-primary dark:hover:text-weave-dark-primary'
-                        }`}
-                      >
-                        <BookOpen className="h-4 w-4" />
-                        <span>{showTreeView ? 'Hide' : 'Show'} Tree View</span>
-                      </button>
-                    )}
+                    
                   </div>
                 )}
               </div>
-
-              {/* Experiment Tree Visualization */}
-              {showTreeView && currentExperiment && (
-                <motion.div
-                  className="mb-6"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                >
-                  <ExperimentTreeVisualization
-                    experiment={currentExperiment}
-                    onRunSelect={(run) => {
-                      // Could implement run selection behavior here
-                    }}
-                    onForkFromRun={(run) => {
-                      setSelectedForkRunId(run.id);
-                      setWorkflowStep('iteration');
-                    }}
-                    selectedRunId={selectedForkRunId || undefined}
-                  />
-                </motion.div>
-              )}
 
               {currentExperiment && currentExperiment.runs.length > 1 ? (
                 // Multiple runs - show dual pane comparison interface
@@ -1461,62 +1721,66 @@ ${assembledPrompt}
 
             {/* Next Run Button - Outside Results Box */}
             <div className="flex justify-center mt-8">
-              <button
-                onClick={() => {
-                  if (currentExperiment && currentExperiment.runs.length > 1) {
-                    // Dual pane case - check for comparison notes and selected fork run
-                    if (!comparisonNotes.trim()) {
-                      alert('Please add comparison notes before proceeding.');
-                      return;
-                    }
-                    if (!dualPaneSelectedForkRunId) {
-                      alert('Please select which run to fork from.');
-                      return;
-                    }
-                    // Proceed with the selected fork run
-                    setSelectedForkRunId(dualPaneSelectedForkRunId);
-                    setWorkflowStep('iteration');
-                  } else {
-                    // Single run case - check for evaluation feedback
-                    if (currentRun && currentExperiment && evaluationFeedback.trim()) {
-                      const evaluation: Evaluation = {
-                        rating: 0,
-                        quality: 'good',
-                        feedback: evaluationFeedback.trim(),
-                        tags: [],
-                        timestamp: Date.now(),
-                      };
-                      handleSaveEvaluation(evaluation);
-                      // Don't auto-select fork point - let user choose
+                              <button
+                  onClick={() => {
+                    if (currentExperiment && currentExperiment.runs.length > 1) {
+                      // Dual pane case - check for comparison notes and selected fork run
+                      if (!comparisonNotes.trim()) {
+                        alert('Please add comparison notes before proceeding.');
+                        return;
+                      }
+                      if (!dualPaneSelectedForkRunId) {
+                        alert('Please select which run to fork from.');
+                        return;
+                      }
+                      // Proceed with the selected fork run
+                      setSelectedForkRunId(dualPaneSelectedForkRunId);
                       setWorkflowStep('iteration');
+                    } else {
+                      // Single run case - check for evaluation feedback
+                      if (currentRun && currentExperiment && evaluationFeedback.trim()) {
+                        const evaluation: Evaluation = {
+                          rating: 0,
+                          quality: 'good',
+                          feedback: evaluationFeedback.trim(),
+                          tags: [],
+                          timestamp: Date.now(),
+                        };
+                        handleSaveEvaluation(evaluation);
+                        // Auto-select the single run as the fork point for iteration
+                        if (currentExperiment.runs.length === 1) {
+                          setSelectedForkRunId(currentExperiment.runs[0].id);
+                          console.log('Auto-selected single run as fork point for iteration');
+                        }
+                        setWorkflowStep('iteration');
+                      }
                     }
+                  }}
+                  disabled={
+                    currentExperiment && currentExperiment.runs.length > 1
+                      ? !comparisonNotes.trim() || !dualPaneSelectedForkRunId
+                      : !evaluationFeedback.trim()
                   }
-                }}
-                disabled={
-                  currentExperiment && currentExperiment.runs.length > 1
-                    ? !comparisonNotes.trim() || !dualPaneSelectedForkRunId
-                    : !evaluationFeedback.trim()
-                }
-                className={`flex items-center space-x-2 px-6 py-3 rounded-lg transition-colors text-lg font-medium ${
-                  (currentExperiment && currentExperiment.runs.length > 1
-                    ? comparisonNotes.trim() && dualPaneSelectedForkRunId
-                    : evaluationFeedback.trim())
-                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
-                    : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                {currentExperiment && currentExperiment.runs.length > 1 ? (
-                  <>
-                    <GitBranch className="h-5 w-5" />
-                    <span>Continue with Selected Run</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowRight className="h-5 w-5" />
-                    <span>Iterate</span>
-                  </>
-                )}
-              </button>
+                  className={`flex items-center space-x-2 px-6 py-3 rounded-lg transition-colors text-lg font-medium ${
+                    (currentExperiment && currentExperiment.runs.length > 1
+                      ? comparisonNotes.trim() && dualPaneSelectedForkRunId
+                      : evaluationFeedback.trim())
+                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
+                      : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {currentExperiment && currentExperiment.runs.length > 1 ? (
+                    <>
+                      <GitBranchPlus className="h-5 w-5" />
+                      <span>Fork & Iterate</span>
+                    </>
+                  ) : (
+                    <>
+                      <ListRestart className="h-5 w-5" />
+                      <span>Iterate</span>
+                    </>
+                  )}
+                </button>
             </div>
           </motion.div>
         );
@@ -1543,20 +1807,24 @@ ${assembledPrompt}
                   </h3>
                   {selectedForkRunId && currentExperiment && currentExperiment.runs.length > 1 && (() => {
                     const runIndex = currentExperiment.runs.findIndex(r => r.id === selectedForkRunId) + 1;
+                    const isSingleRun = currentExperiment.runs.length === 1;
                     return (
                       <div className="mt-2 space-y-1">
                         <div className="text-sm text-weave-light-secondary dark:text-weave-dark-secondary">
-                          Forking from Run {runIndex}
+                          {isSingleRun ? 'Starting iteration from Run 1' : `Forking from Run ${runIndex}`}
                         </div>
-                        <button
-                          onClick={() => {
-                            setSelectedForkRunId(null);
-                            setWorkflowStep('evaluation');
-                          }}
-                          className="text-xs text-weave-light-accent dark:text-weave-dark-accent hover:underline"
-                        >
-                          Change Fork Point
-                        </button>
+                        {!isSingleRun && (
+                          <button
+                            onClick={() => {
+                              setSelectedForkRunId('');
+                              setDualPaneSelectedForkRunId('');
+                              setWorkflowStep('evaluation');
+                            }}
+                            className="text-xs text-weave-light-accent dark:text-weave-dark-accent hover:underline"
+                          >
+                            Change Fork Point
+                          </button>
+                        )}
                       </div>
                     );
                   })()}
@@ -1584,24 +1852,32 @@ ${assembledPrompt}
               <div className="mb-6">
                               <PromptBuilder
                 key={promptBuilderKey}
-                value=""
+                value={currentAssembledPrompt}
                 onChange={handlePromptChange}
                 previousExperiment={memoizedPreviousExperiment}
                 onBlockChanges={handleBlockChanges}
                 onBlockStatesChange={handleBlockStatesChange}
                 onParametersChange={handleParametersChange}
-                onResetBlockContent={handleResetBlockContent}
                 onBlockChange={handleBlockChange}
                 onParameterChange={handleParameterChange}
+                onResetBlock={handleResetBlockContent}
                 changedParameter={changedParameter}
                 changedBlock={changedBlock}
                 hideParameters={true}
-                initialBlockStates={selectedForkRunId && currentExperiment ? 
-                  parsePromptIntoBlocks(
-                    currentExperiment.runs.find(r => r.id === selectedForkRunId)?.prompt || '',
-                    true
-                  ) : currentBlockStates}
-                previousRunContent={previousRunContent}
+                initialBlockStates={currentBlockStates}
+                previousRunContent={(() => {
+                  if (selectedForkRunId && currentExperiment) {
+                    const forkRun = currentExperiment.runs.find(r => r.id === selectedForkRunId);
+                    if (forkRun) {
+                      const forkBlockStates = parsePromptIntoBlocks(forkRun.prompt);
+                      return forkBlockStates.reduce((acc, block) => {
+                        acc[block.id] = block.content;
+                        return acc;
+                      }, {} as Record<string, string>);
+                    }
+                  }
+                  return {};
+                })()}
                 isForkMode={!!selectedForkRunId}
                 onFilesChange={handleFilesChange}
                 uploadedFiles={uploadedFiles}
@@ -1655,7 +1931,7 @@ ${assembledPrompt}
                           {validation.reason}
                         </div>
                       )}
-                      <button
+                                              <button
                         onClick={handleNextRun}
                         disabled={!validation.canRun}
                         className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
@@ -1664,8 +1940,8 @@ ${assembledPrompt}
                             : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                         }`}
                       >
-                        <span>Run Next Iteration</span>
-                        <ArrowRight className="h-4 w-4" />
+                        <Play className="h-4 w-4" />
+                        <span>Run</span>
                       </button>
                     </>
                   );
@@ -1700,7 +1976,7 @@ ${assembledPrompt}
                       onClick={handleFinishExperiment}
                       className="flex items-center space-x-1 px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                     >
-                      <TrendingUp className="h-4 w-4" />
+                      <NotebookPen className="h-4 w-4" />
                       <span>Finish & Summarize</span>
                     </button>
                   </div>
@@ -1762,8 +2038,8 @@ ${assembledPrompt}
                       : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  <GitBranch className="h-5 w-5" />
-                  <span>Continue with Selected Run</span>
+                  <GitBranchPlus className="h-5 w-5" />
+                  <span>Fork & Iterate</span>
                 </button>
               </div>
             )}
@@ -1834,7 +2110,7 @@ ${assembledPrompt}
                   : 'text-weave-light-secondary dark:text-weave-dark-secondary hover:text-weave-light-primary dark:hover:text-weave-dark-primary'
               }`}
             >
-              <BookOpen className="h-4 w-4" />
+              <NotebookText className="h-4 w-4" />
               <span>Lab Notebook</span>
             </button>
           </div>

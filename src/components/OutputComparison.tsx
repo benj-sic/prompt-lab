@@ -84,7 +84,7 @@ export const OutputComparison: React.FC<OutputComparisonProps> = ({
             </div>
           </div>
           <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-3 max-h-48 overflow-y-auto">
-            <div className="text-xs font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words">
+            <div className="text-sm leading-relaxed text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words font-sans">
               {run1.output || 'No output'}
             </div>
           </div>
@@ -102,7 +102,7 @@ export const OutputComparison: React.FC<OutputComparisonProps> = ({
             </div>
           </div>
           <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-3 max-h-48 overflow-y-auto">
-            <div className="text-xs font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words">
+            <div className="text-sm leading-relaxed text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words font-sans">
               {run2.output || 'No output'}
             </div>
           </div>
@@ -135,23 +135,19 @@ export const OutputComparison: React.FC<OutputComparisonProps> = ({
 
             {/* Prompt Changes */}
             {hasPromptChanges && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <div className="space-y-3">
                 <h6 className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-2">Prompt Changes</h6>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                   <div>
                     <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">Run {run1Index} Prompt</div>
-                    <div className="bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-800 rounded p-2 max-h-24 overflow-y-auto">
-                      <div className="text-xs font-mono text-blue-700 dark:text-blue-300 whitespace-pre-wrap">
-                        {run1.prompt}
-                      </div>
+                    <div className="text-sm leading-relaxed text-blue-700 dark:text-blue-300 whitespace-pre-wrap font-sans">
+                      {run1.prompt}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">Run {run2Index} Prompt</div>
-                    <div className="bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-800 rounded p-2 max-h-24 overflow-y-auto">
-                      <div className="text-xs font-mono text-blue-700 dark:text-blue-300 whitespace-pre-wrap">
-                        {run2.prompt}
-                      </div>
+                    <div className="text-sm leading-relaxed text-blue-700 dark:text-blue-300 whitespace-pre-wrap font-sans">
+                      {run2.prompt}
                     </div>
                   </div>
                 </div>

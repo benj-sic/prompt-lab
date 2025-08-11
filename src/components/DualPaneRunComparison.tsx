@@ -50,25 +50,50 @@ export const DualPaneRunComparison: React.FC<DualPaneRunComparisonProps> = ({
     }
   }, [externalComparisonNotes]);
 
-  // Only set selected fork run ID if explicitly provided and not empty
-  useEffect(() => {
-    if (externalSelectedForkRunId !== undefined && externalSelectedForkRunId !== '') {
-      setSelectedForkRunId(externalSelectedForkRunId);
-    }
-  }, [externalSelectedForkRunId]);
-
-  // Auto-select default runs: previous (n-1) on left, current (n) on right
+  // Handle fork run selection logic (consolidated to avoid race conditions)
   useEffect(() => {
     if (experiment.runs.length >= 2) {
       const currentRun = experiment.runs[experiment.runs.length - 1];
       const previousRun = experiment.runs[experiment.runs.length - 2];
       setLeftRunId(previousRun.id);
       setRightRunId(currentRun.id);
+      
+      // Handle fork run selection
+      if (externalSelectedForkRunId !== undefined) {
+        if (externalSelectedForkRunId === '') {
+          // Clear the selection when explicitly set to empty string
+          setSelectedForkRunId('');
+          onForkRunChange?.('');
+        } else if (externalSelectedForkRunId !== '') {
+          // Set to the provided value
+          setSelectedForkRunId(externalSelectedForkRunId);
+        }
+      } else if (!selectedForkRunId) {
+        // Auto-select the newer (right pane) run as default fork if no fork is explicitly selected
+        setSelectedForkRunId('');
+        onForkRunChange?.('');
+      }
     } else if (experiment.runs.length === 1) {
       setLeftRunId(experiment.runs[0].id);
       setRightRunId('');
+      
+      // Handle fork run selection
+      if (externalSelectedForkRunId !== undefined) {
+        if (externalSelectedForkRunId === '') {
+          // Clear the selection when explicitly set to empty string
+          setSelectedForkRunId('');
+          onForkRunChange?.('');
+        } else if (externalSelectedForkRunId !== '') {
+          // Set to the provided value
+          setSelectedForkRunId(externalSelectedForkRunId);
+        }
+      } else if (!selectedForkRunId) {
+        // Auto-select the single run as default fork if no fork is explicitly selected
+        setSelectedForkRunId(experiment.runs[0].id);
+        onForkRunChange?.(experiment.runs[0].id);
+      }
     }
-  }, [experiment.runs]);
+  }, [experiment.runs, externalSelectedForkRunId, selectedForkRunId, onForkRunChange]);
 
   // Load existing comparison notes when runs are selected
   useEffect(() => {
@@ -108,6 +133,7 @@ export const DualPaneRunComparison: React.FC<DualPaneRunComparisonProps> = ({
 
   const getRunWithParameters = (run: ExperimentRun) => {
     const index = experiment.runs.findIndex(r => r.id === run.id) + 1;
+    
     return `Run ${index}`;
   };
 
@@ -148,11 +174,7 @@ export const DualPaneRunComparison: React.FC<DualPaneRunComparisonProps> = ({
             <h3 className="text-lg font-medium text-weave-light-primary dark:text-weave-dark-primary">
               Compare Run Outputs
             </h3>
-            {leftRun && rightRun && (
-              <p className="text-sm text-weave-light-secondary dark:text-weave-dark-secondary">
-                Comparing {getRunDisplayName(leftRun)} vs {getRunDisplayName(rightRun)}
-              </p>
-            )}
+            
           </div>
         </div>
         <div className="text-sm text-weave-light-secondary dark:text-weave-dark-secondary">
@@ -200,17 +222,10 @@ export const DualPaneRunComparison: React.FC<DualPaneRunComparisonProps> = ({
           {/* Left Output Display */}
           {leftRun && (
             <div className="space-y-3">
-              <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary">
-                    {getRunDisplayName(leftRun)}
-                  </h4>
-                  <div className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary">
-                    {new Date(leftRun.timestamp).toLocaleString()}
-                  </div>
-                </div>
+              <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-6">
+                
                 <div className="h-96 overflow-y-auto">
-                  <div className="text-sm font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words">
+                  <div className="text-base leading-relaxed text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words font-sans">
                     {leftRun.output || 'No output'}
                   </div>
                 </div>
@@ -271,17 +286,10 @@ export const DualPaneRunComparison: React.FC<DualPaneRunComparisonProps> = ({
           {/* Right Output Display */}
           {rightRun && (
             <div className="space-y-3">
-              <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary">
-                    {getRunDisplayName(rightRun)}
-                  </h4>
-                  <div className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary">
-                    {new Date(rightRun.timestamp).toLocaleString()}
-                  </div>
-                </div>
+              <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-6">
+                
                 <div className="h-96 overflow-y-auto">
-                  <div className="text-sm font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words">
+                  <div className="text-base leading-relaxed text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words font-sans">
                     {rightRun.output || 'No output'}
                   </div>
                 </div>

@@ -4,6 +4,12 @@ import { ChevronDown, ChevronRight, X, Paperclip } from 'lucide-react';
 import { PromptBlock, PromptBlockState, Experiment, BlockChanges, UploadedFile } from '../types';
 import { getDemoPrompt } from '../utils/demoPrompts';
 
+// Import PDF.js for PDF parsing
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set the worker source for PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
 interface PromptBuilderProps {
   value: string;
   onChange: (value: string) => void;
@@ -11,9 +17,9 @@ interface PromptBuilderProps {
   onBlockChanges?: (changes: BlockChanges) => void;
   onBlockStatesChange?: (blockStates: PromptBlockState[]) => void;
   onParametersChange?: (params: { temperature: number; maxTokens: number; model: string }) => void;
-  onResetBlockContent?: (blockId: string) => void;
   onBlockChange?: (blockId: string | null) => void;
   onParameterChange?: (parameter: string) => void;
+  onResetBlock?: (blockId: string) => void;
   changedParameter?: string | null;
   changedBlock?: string | null;
   hideParameters?: boolean;
@@ -22,6 +28,7 @@ interface PromptBuilderProps {
   isForkMode?: boolean;
   onFilesChange?: (files: UploadedFile[]) => void;
   uploadedFiles?: UploadedFile[];
+  resetTrigger?: number; // Add this to signal when reset occurs
 }
 
 // Define the prompt blocks (simplified to one section)
@@ -92,9 +99,9 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
   onBlockChanges,
   onBlockStatesChange,
   onParametersChange,
-  onResetBlockContent,
   onBlockChange,
   onParameterChange,
+  onResetBlock,
   changedParameter,
   changedBlock,
   hideParameters = false,
@@ -103,6 +110,7 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
   isForkMode = false,
   onFilesChange,
   uploadedFiles = [],
+  resetTrigger = 0,
 }) => {
   const [blockStates, setBlockStates] = useState<PromptBlockState[]>([]);
   const [temperature, setTemperature] = useState(0.7);
@@ -112,6 +120,7 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
   const [files, setFiles] = useState<UploadedFile[]>(uploadedFiles);
   const [isDragOver, setIsDragOver] = useState(false);
   const [userHasEdited, setUserHasEdited] = useState(false);
+  const [isParsingPDF, setIsParsingPDF] = useState(false);
   
   const initializedRef = useRef(false);
   const isUserEditRef = useRef(false);
@@ -130,12 +139,13 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
     }
   }, [uploadedFiles, files.length]);
 
-  // Initialize block states - prevent rendering loops but allow updates
+
+
+  // Initialize block states and sync with parent state changes
   useEffect(() => {
     console.log('Initialization effect triggered');
     console.log('initialBlockStates:', initialBlockStates);
     console.log('isForkMode:', isForkMode);
-    console.log('initializedRef.current:', initializedRef.current);
     
     // Skip if this is a user edit
     if (isUserEditRef.current) {
@@ -144,92 +154,31 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
       return;
     }
     
-    // If we have initialBlockStates prop, use them directly (this takes priority)
+    // If we have initialBlockStates prop, always sync with them
     if (initialBlockStates && initialBlockStates.length > 0) {
-      console.log('Using initialBlockStates:', initialBlockStates);
-      console.log('isForkMode:', isForkMode);
-      console.log('userHasEdited:', userHasEdited);
+      console.log('Syncing with initialBlockStates:', initialBlockStates);
       
-      // Force update in fork mode to ensure content is applied, but only if not already initialized
-      if (isForkMode && !initializedRef.current) {
-        console.log('Force updating block states in fork mode');
-        // Update collapse state based on content
-        const updatedBlockStates = initialBlockStates.map(block => ({
-          ...block,
-          isCollapsed: block.content.trim() === '' // Collapse if no content
-        }));
-        setBlockStates(updatedBlockStates);
-        previousInitialBlockStatesRef.current = updatedBlockStates;
-        initializedRef.current = true;
-        return;
-      }
+      // Always update block states to match parent state
+      const updatedBlockStates = initialBlockStates.map(block => ({
+        ...block,
+        isCollapsed: block.content.trim() === '' // Collapse if no content
+      }));
       
-      // Don't override user edits in fork mode
-      if (isForkMode && userHasEdited) {
-        console.log('Skipping update in fork mode - user has made edits');
-        return;
-      }
-      
-      // Only update if the content has actually changed to prevent loops
-      const hasContentChanged = blockStates.length === 0 || 
-        initialBlockStates.some((newBlock, index) => {
-          const currentBlock = blockStates[index];
-          const previousBlock = previousInitialBlockStatesRef.current[index];
-          
-          // Check if this is a new block or if content has changed
-          return !currentBlock || 
-                 currentBlock.content !== newBlock.content ||
-                 !previousBlock ||
-                 previousBlock.content !== newBlock.content;
-        });
-      
-      // In fork mode, also check if we need to update based on initialBlockStates changes
-      if (isForkMode && initializedRef.current && !userHasEdited) {
-        const needsUpdate = initialBlockStates.some((newBlock, index) => {
-          const currentBlock = blockStates[index];
-          return currentBlock && (
-            currentBlock.content !== newBlock.content
-          );
-        });
-        
-        if (needsUpdate) {
-          console.log('Updating block states in fork mode due to initialBlockStates changes');
-          // Update collapse state based on content
-          const updatedBlockStates = initialBlockStates.map(block => ({
-            ...block,
-            isCollapsed: block.content.trim() === '' // Collapse if no content
-          }));
-          setBlockStates(updatedBlockStates);
-          previousInitialBlockStatesRef.current = updatedBlockStates;
-          return;
-        }
-      }
-      
-      if (hasContentChanged) {
-        console.log('Setting block states from initialBlockStates');
-        // Update collapse state based on content
-        const updatedBlockStates = initialBlockStates.map(block => ({
-          ...block,
-          isCollapsed: block.content.trim() === '' // Collapse if no content
-        }));
-        setBlockStates(updatedBlockStates);
-        previousInitialBlockStatesRef.current = updatedBlockStates;
-        initializedRef.current = true;
-      } else {
-        console.log('No changes detected, keeping current block states');
-      }
+      setBlockStates(updatedBlockStates);
+      previousInitialBlockStatesRef.current = updatedBlockStates;
+      initializedRef.current = true;
       return;
     }
     
-    // Only initialize from other sources if not already initialized AND not in fork mode
-    if (initializedRef.current || isForkMode) {
-      console.log('Skipping fallback initialization - initialized:', initializedRef.current, 'isForkMode:', isForkMode);
+    // Only initialize from other sources if not already initialized
+    if (initializedRef.current) {
+      console.log('Already initialized, skipping fallback initialization');
       return;
     }
     
     console.log('Using fallback initialization with previousExperiment:', previousExperiment);
     
-    // Only fall back to other initialization if no initialBlockStates and not in fork mode
+    // Fall back to other initialization if no initialBlockStates
     const initialStates: PromptBlockState[] = PROMPT_BLOCKS.map(block => {
       // If we have a previous experiment, try to restore block content
       if (previousExperiment?.blockContent?.[block.id]) {
@@ -252,7 +201,7 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
     console.log('Setting block states from fallback initialization');
     setBlockStates(initialStates);
     initializedRef.current = true;
-  }, [initialBlockStates, previousExperiment, isForkMode, userHasEdited, blockStates]);
+  }, [initialBlockStates, previousExperiment, isForkMode]);
 
   const getBlockConfig = useCallback((blockId: string) => {
     return PROMPT_BLOCKS.find(block => block.id === blockId);
@@ -301,7 +250,7 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
     // Only notify parent of block states if this is not an initialization
     // This prevents the endless loop when initialBlockStates are provided
     if (initializedRef.current) {
-      onBlockStatesChange?.(blockStates);
+      // onBlockStatesChange?.(blockStates);
     }
   }, [blockStates, onChange, onBlockStatesChange, getBlockConfig, files, isForkMode]);
 
@@ -340,13 +289,21 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
     
     setBlockStates(updatedBlockStates);
     
-    // Check if the content is identical to the baseline content
+    // Determine baseline content for change detection (same logic as reset button)
     let baselineContent = '';
     
-    // Determine baseline content based on the current context
-    if (previousExperiment?.blockContent?.[blockId]) {
+    if (isForkMode && previousRunContent?.[blockId]) {
+      // In fork mode, use the fork run content as baseline
+      baselineContent = previousRunContent[blockId];
+    } else if (isForkMode && initialBlockStates) {
+      // Fallback: use initial block states from fork run
+      const initialBlock = initialBlockStates.find(block => block.id === blockId);
+      baselineContent = initialBlock?.content || '';
+    } else if (previousExperiment?.blockContent?.[blockId]) {
+      // Use original experiment content as baseline
       baselineContent = previousExperiment.blockContent[blockId];
     } else if (initialBlockStates) {
+      // Use initial block states as baseline
       const initialBlock = initialBlockStates.find(block => block.id === blockId);
       baselineContent = initialBlock?.content || '';
     }
@@ -354,8 +311,10 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
     // If content matches baseline, clear the changed block indicator
     if (content === baselineContent) {
       onBlockChange?.(null); // Clear the changed block indicator
+      console.log(`Block ${blockId} content matches baseline, clearing changed indicator`);
     } else {
       onBlockChange?.(blockId); // Set the changed block indicator
+      console.log(`Block ${blockId} content differs from baseline, setting changed indicator`);
     }
     
     // Immediately notify parent of the updated block states
@@ -363,11 +322,13 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
   };
 
   const toggleBlockCollapse = (blockId: string) => {
-    setBlockStates(prev => prev.map(block => 
-      block.id === blockId 
+    const newBlockStates = blockStates.map(block =>
+      block.id === blockId
         ? { ...block, isCollapsed: !block.isCollapsed }
         : block
-    ));
+    );
+    setBlockStates(newBlockStates);
+    onBlockStatesChange?.(newBlockStates);
   };
 
   // File upload handlers
@@ -391,10 +352,17 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
         content = await file.text();
         console.log('Read text file:', file.name, 'Content length:', content.length);
       } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-        // For PDFs, we'll include the actual study report content
-        // This is the content from the Mock_IND_Study_Report.pdf
-        content = `[PDF STUDY REPORT: ${file.name}]\n\nA GLP-compliant 28-day repeat-dose oral toxicity study of RBX-127 was conducted in Sprague-Dawley rats (10/sex/group) at 0, 50, 150, or 500 mg/kg/day with 14-day recovery cohorts in the control and high-dose groups (5/sex/group). No mortality occurred. At 500 mg/kg/day, transient piloerection and decreased activity were observed during Week 1, along with minimal reductions in body weight gain and food consumption, mild nonadverse increases in ALT/AST without histopathologic correlate, and minimal–mild centrilobular hepatocellular hypertrophy consistent with adaptive enzyme induction. These findings were fully reversible following the recovery period. No RBX-127–related effects were noted at ≤150 mg/kg/day. The NOAEL was 150 mg/kg/day for both sexes, and systemic exposure increased dose-proportionally up to 150 mg/kg/day.`;
-        console.log('PDF file detected:', file.name);
+        // Parse PDF using pdfjs-dist for actual text extraction
+        setIsParsingPDF(true);
+        try {
+          content = await parsePDFFile(file);
+          console.log('PDF parsed successfully:', file.name, 'Content length:', content.length);
+        } catch (parseError) {
+          console.error('PDF parsing failed:', parseError);
+          content = `[PDF STUDY REPORT: ${file.name}]\n\nError: Failed to parse PDF content. ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`;
+        } finally {
+          setIsParsingPDF(false);
+        }
       } else {
         content = `[File: ${file.name}] - Unsupported file type. Please use TXT or PDF format.`;
         console.log('Unsupported file type:', file.name);
@@ -457,6 +425,44 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  // Helper function to parse PDF files using pdfjs-dist
+  const parsePDFFile = async (file: File): Promise<string> => {
+    try {
+      console.log('Starting PDF parsing for:', file.name);
+      
+      // Convert file to ArrayBuffer
+      const arrayBuffer = await file.arrayBuffer();
+      
+      // Load the PDF document
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      
+      console.log('PDF loaded successfully. Pages:', pdf.numPages);
+      
+      let fullText = '';
+      
+      // Extract text from each page
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        
+        // Combine text items from the page
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        
+        fullText += `\n--- Page ${pageNum} ---\n${pageText}\n`;
+      }
+      
+      console.log('PDF parsing completed. Total text length:', fullText.length);
+      return fullText.trim();
+      
+    } catch (error) {
+      console.error('Error parsing PDF:', error);
+      throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   // Load demo prompt (only for initial building, not iterations)
   const loadDemoPrompt = () => {
     const demoPrompt = getDemoPrompt();
@@ -471,6 +477,7 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
     });
     
     setBlockStates(demoStates);
+    onBlockStatesChange?.(demoStates);
     
     // Automatically create and upload the mock study report
     const mockStudyReport: UploadedFile = {
@@ -478,9 +485,7 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({
       name: 'Mock_IND_Study_Report_v2.pdf',
       size: 45000, // Approximate size
       type: 'application/pdf',
-      content: `[PDF STUDY REPORT: Mock_IND_Study_Report_v2.pdf]
-
-A GLP-compliant 28-day repeat-dose oral toxicity study of RBX-127 was conducted in Sprague-Dawley rats (10/sex/group) at 0, 50, 150, or 500 mg/kg/day with 14-day recovery cohorts in the control and high-dose groups (5/sex/group). No mortality occurred. At 500 mg/kg/day, transient piloerection and decreased activity were observed during Week 1, along with minimal reductions in body weight gain and food consumption, mild nonadverse increases in ALT/AST without histopathologic correlate, and minimal–mild centrilobular hepatocellular hypertrophy consistent with adaptive enzyme induction. These findings were fully reversible following the recovery period. No RBX-127–related effects were noted at ≤150 mg/kg/day. The NOAEL was 150 mg/kg/day for both sexes, and systemic exposure increased dose-proportionally up to 150 mg/kg/day.`
+      content: `[PDF STUDY REPORT: Mock_IND_Study_Report_v2.pdf]`
     };
     
     // Set the mock file
@@ -529,25 +534,42 @@ A GLP-compliant 28-day repeat-dose oral toxicity study of RBX-127 was conducted 
                     )}
                   </div>
                   <div className="flex items-center space-x-2">
-                    {changedBlock === block.id && !isForkMode && (
-                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                        Changed
-                      </span>
-                    )}
-                    {onResetBlockContent && (() => {
-                      // Use previousRunContent if available, otherwise fall back to original experiment content
-                      const referenceContent = previousRunContent?.[block.id] ?? previousExperiment?.blockContent?.[block.id] ?? '';
-                      // In fork mode, always show reset buttons if reference content exists
-                      // In regular mode, only show if content has changed
-                      return referenceContent && (isForkMode || block.content !== referenceContent);
-                    })() && (
-                      <button
-                        onClick={() => onResetBlockContent(block.id)}
-                        className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                      >
-                        Reset
-                      </button>
-                    )}
+
+                    {(() => {
+                      // Simplified logic: show reset button if we have reference content and content has changed
+                      // This matches the parameter reset button logic
+                      
+                      // Determine the baseline content to compare against
+                      let baselineContent = '';
+                      
+                      if (isForkMode && previousRunContent?.[block.id]) {
+                        // In fork mode, use the fork run content as baseline
+                        baselineContent = previousRunContent[block.id];
+                      } else if (isForkMode && initialBlockStates) {
+                        // Fallback to initial block states
+                        const initialBlock = initialBlockStates.find(b => b.id === block.id);
+                        baselineContent = initialBlock?.content || '';
+                      }
+                      
+                      // Show reset button if content has changed from baseline
+                      const hasChanged = baselineContent && block.content !== baselineContent;
+                      
+                      if (!hasChanged) return null;
+                      
+                      return (
+                        <button
+                          onClick={() => {
+                            // Always use the parent's reset handler for proper state management
+                            if (onResetBlock) {
+                              onResetBlock(block.id);
+                            }
+                          }}
+                          className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        >
+                          Reset
+                        </button>
+                      );
+                    })()}
                     <button
                       onClick={() => toggleBlockCollapse(block.id)}
                       className="text-weave-light-secondary dark:text-weave-dark-secondary hover:text-weave-light-primary dark:hover:text-weave-dark-primary transition-colors"
@@ -613,7 +635,7 @@ A GLP-compliant 28-day repeat-dose oral toxicity study of RBX-127 was conducted 
                         <label className="cursor-pointer">
                           <Paperclip className={`h-4 w-4 transition-colors ${
                             files.length > 0 
-                              ? 'text-weave-light-accent dark:text-weave-dark-accent' 
+                              ? 'text-weave-light-accent dark:text-weave-light-accent' 
                               : 'text-weave-light-secondary dark:text-weave-dark-secondary hover:text-weave-light-accent dark:hover:text-weave-dark-accent'
                           }`} />
                           <input
@@ -623,6 +645,14 @@ A GLP-compliant 28-day repeat-dose oral toxicity study of RBX-127 was conducted 
                             className="hidden"
                           />
                         </label>
+                        
+                        {/* PDF parsing loading indicator */}
+                        {isParsingPDF && (
+                          <div className="mt-2 flex items-center space-x-2 text-sm text-weave-light-accent dark:text-weave-dark-accent">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                            <span>Parsing PDF...</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </motion.div>
@@ -642,9 +672,7 @@ A GLP-compliant 28-day repeat-dose oral toxicity study of RBX-127 was conducted 
           >
             {showParameters ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <span>Model Parameters</span>
-            <span className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary">
-              (Temperature: {temperature}, Tokens: {maxTokens})
-            </span>
+            
           </button>
         
         <AnimatePresence>
@@ -678,22 +706,9 @@ A GLP-compliant 28-day repeat-dose oral toxicity study of RBX-127 was conducted 
 
               {/* Temperature Control */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-weave-light-secondary dark:text-weave-dark-secondary">
-                    Creativity Level
-                  </label>
-                  <span className={`text-sm font-medium ${
-                    temperature <= 0.3 ? 'text-green-600 dark:text-green-400' : 
-                    temperature <= 0.7 ? 'text-blue-600 dark:text-blue-400' : 
-                    temperature <= 1.0 ? 'text-orange-600 dark:text-orange-400' : 
-                    'text-red-600 dark:text-red-400'
-                  }`}>
-                    {temperature <= 0.3 ? 'Focused (Consistent)' : 
-                     temperature <= 0.7 ? 'Balanced (Creative)' : 
-                     temperature <= 1.0 ? 'Creative (Varied)' : 
-                     'Very Creative (Unpredictable)'}
-                  </span>
-                </div>
+                <label className="block text-sm font-medium text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
+                  Temperature: {temperature}
+                </label>
                 <input
                   type="range"
                   min="0"
@@ -710,18 +725,13 @@ A GLP-compliant 28-day repeat-dose oral toxicity study of RBX-127 was conducted 
                   }`}
                 />
                 <div className="flex justify-between text-xs text-weave-light-secondary dark:text-weave-dark-secondary mt-1">
-                  <span>0 (Focused)</span>
-                  <span>1 (Balanced)</span>
-                  <span>2 (Creative)</span>
+                  <span>0</span>
+                  <span>1</span>
+                  <span>2</span>
                 </div>
-                
-                {/* Temperature Explanation */}
-                <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                  <p className="text-xs text-blue-800 dark:text-blue-200">
-                    <strong>Temperature</strong> controls randomness in responses. Lower values (0-0.3) give consistent, focused answers. 
-                    Higher values (0.7-2.0) create more creative, varied responses. For most tasks, 0.7-1.0 works well.
-                  </p>
-                </div>
+                <p className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary mt-1">
+                  Controls randomness in responses. Lower values give consistent, focused answers. Higher values create more creative, varied responses.
+                </p>
               </div>
 
               {/* Max Tokens */}

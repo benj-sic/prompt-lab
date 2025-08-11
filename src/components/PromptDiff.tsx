@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { GitCompare, ChevronDown, ChevronUp } from 'lucide-react';
+import { Diff, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface PromptDiffProps {
   originalPrompt: string;
@@ -25,29 +25,107 @@ export const PromptDiff: React.FC<PromptDiffProps> = ({
     return null;
   }
 
-  const highlightChanges = (text: string, isOriginal: boolean) => {
-    if (!showDiff) return text;
+  // Function to format prompt with bold component titles and proper spacing
+  const formatPromptWithComponents = (prompt: string) => {
+    const lines = prompt.split('\n');
+    const formattedLines: React.ReactElement[] = [];
     
-    // Simple line-based diff highlighting
-    const lines = text.split('\n');
-    const originalLines = originalPrompt.split('\n');
-    const currentLines = currentPrompt.split('\n');
-    
-    return lines.map((line, index) => {
-      const otherLines = isOriginal ? currentLines : originalLines;
-      const isChanged = otherLines[index] !== line;
-      
-      if (isChanged) {
-        const bgColor = isOriginal ? 'bg-red-100 dark:bg-red-900/20' : 'bg-green-100 dark:bg-green-900/20';
-        const textColor = isOriginal ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300';
-        return (
-          <div key={index} className={`${bgColor} ${textColor} px-2 py-1 rounded mb-1`}>
+    lines.forEach((line, index) => {
+      if (line.includes('[PDF STUDY REPORT:')) return;
+      // Check if this line is a component title (ends with colon)
+      if (line.trim().endsWith(':')) {
+        // Add empty line before component (except for first component)
+        if (index > 0 && lines[index - 1].trim() !== '') {
+          formattedLines.push(<div key={`empty-${index}`} className="mb-4"></div>);
+        }
+        // Bold the component title
+        formattedLines.push(
+          <div key={index} className="font-bold text-weave-light-primary dark:text-weave-dark-primary mb-1">
+            {line}
+          </div>
+        );
+      } else {
+        // Regular content line
+        formattedLines.push(
+          <div key={index} className="mb-1">
             {line}
           </div>
         );
       }
-      return <div key={index} className="mb-1">{line}</div>;
     });
+    
+    return formattedLines;
+  };
+
+  // Function to highlight changes using different colors instead of boxing
+  const highlightChanges = (text: string, isOriginal: boolean) => {
+    if (!showDiff) {
+      return formatPromptWithComponents(text);
+    }
+    
+    const lines = text.split('\n');
+    const originalLines = originalPrompt.split('\n');
+    const currentLines = currentPrompt.split('\n');
+    const formattedLines: React.ReactElement[] = [];
+    
+    lines.forEach((line, index) => {
+      if (line.includes('[PDF STUDY REPORT:')) return;
+      const otherLines = isOriginal ? currentLines : originalLines;
+      const isChanged = otherLines[index] !== line;
+      
+      // Check if this line is a component title
+      const isComponentTitle = line.trim().endsWith(':');
+      
+      if (isChanged) {
+        // Use different colors for changed lines instead of boxing
+        const textColor = isOriginal 
+          ? 'text-red-600 dark:text-red-400' 
+          : 'text-green-600 dark:text-green-400';
+        
+        if (isComponentTitle) {
+          // Add empty line before component (except for first component)
+          if (index > 0 && lines[index - 1].trim() !== '') {
+            formattedLines.push(<div key={`empty-${index}`} className="mb-4"></div>);
+          }
+          // Bold the component title with change color
+          formattedLines.push(
+            <div key={index} className={`font-bold ${textColor} mb-1`}>
+              {line}
+            </div>
+          );
+        } else {
+          // Regular changed content line
+          formattedLines.push(
+            <div key={index} className={`${textColor} mb-1`}>
+              {line}
+            </div>
+          );
+        }
+      } else {
+        // Unchanged lines
+        if (isComponentTitle) {
+          // Add empty line before component (except for first component)
+          if (index > 0 && lines[index - 1].trim() !== '') {
+            formattedLines.push(<div key={`empty-${index}`} className="mb-4"></div>);
+          }
+          // Bold the component title
+          formattedLines.push(
+            <div key={index} className="font-bold text-weave-light-primary dark:text-weave-dark-primary mb-1">
+              {line}
+            </div>
+          );
+        } else {
+          // Regular unchanged content line
+          formattedLines.push(
+            <div key={index} className="mb-1">
+              {line}
+            </div>
+          );
+        }
+      }
+    });
+    
+    return formattedLines;
   };
 
   return (
@@ -61,7 +139,7 @@ export const PromptDiff: React.FC<PromptDiffProps> = ({
         className="w-full flex items-center justify-between p-4 hover:bg-weave-light-accentMuted dark:hover:bg-weave-dark-accentMuted transition-colors"
       >
         <div className="flex items-center space-x-2">
-          <GitCompare className="h-4 w-4 text-weave-light-accent dark:text-weave-dark-accent" />
+          <Diff className="h-4 w-4 text-weave-light-accent dark:text-weave-dark-accent" />
           <span className="font-medium text-weave-light-primary dark:text-weave-dark-primary">
             Prompt Changes
           </span>
@@ -81,25 +159,15 @@ export const PromptDiff: React.FC<PromptDiffProps> = ({
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
-              <h5 className="text-sm font-medium text-red-700 dark:text-red-300 mb-2 flex items-center space-x-2">
-                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                <span>{originalLabel}</span>
-              </h5>
-              <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded p-3 h-64 overflow-y-auto">
-                <div className="text-xs font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap">
-                  {highlightChanges(originalPrompt, true)}
-                </div>
+              
+              <div className="text-sm leading-relaxed text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap font-sans">
+                {highlightChanges(originalPrompt, true)}
               </div>
             </div>
             <div>
-              <h5 className="text-sm font-medium text-green-700 dark:text-green-300 mb-2 flex items-center space-x-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                <span>{currentLabel}</span>
-              </h5>
-              <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded p-3 h-64 overflow-y-auto">
-                <div className="text-xs font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap">
-                  {highlightChanges(currentPrompt, false)}
-                </div>
+              
+              <div className="text-sm leading-relaxed text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap font-sans">
+                {highlightChanges(currentPrompt, false)}
               </div>
             </div>
           </div>

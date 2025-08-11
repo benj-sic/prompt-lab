@@ -15,6 +15,7 @@ export interface ExperimentRun {
   parentRunId?: string; // ID of the run this was forked from
   branchName?: string; // User-defined branch name (e.g., "temperature-experiment", "context-variations")
   changeDescription?: string; // What changed from parent (e.g., "Increased temperature to 1.2")
+  uploadedFiles?: UploadedFile[];
 }
 
 export interface Experiment {

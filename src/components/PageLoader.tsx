@@ -33,8 +33,8 @@ export const PageLoader: React.FC = () => {
             >
               <svg width="64" height="64" viewBox="0 0 64 64" className="logo-svg">
                 <rect width="64" height="64" fill="var(--weave-background)" rx="4" ry="4"/>
-                <rect x="4" y="4" width="56" height="56" fill="none" stroke="var(--weave-accent)" stroke-width="3" rx="2" ry="2"/>
-                <text x="32" y="32" font-family="Inter, Arial, sans-serif" font-size="24" fill="var(--weave-accent)" font-weight="bold" text-anchor="middle" dominant-baseline="middle">PL</text>
+                <rect x="4" y="4" width="56" height="56" fill="none" stroke="var(--weave-accent)" strokeWidth="3" rx="2" ry="2"/>
+                <text x="32" y="32" fontFamily="Inter, Arial, sans-serif" fontSize="24" fill="var(--weave-accent)" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">PL</text>
               </svg>
             </motion.div>
             <motion.h2

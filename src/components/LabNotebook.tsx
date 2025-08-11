@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  BookOpen, 
+  NotebookText, 
   Trash2, 
   Download, 
   X,
@@ -11,7 +11,9 @@ import {
   Calendar,
   Target,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Copy,
+  CheckCheck
 } from 'lucide-react';
 import { Experiment, ExperimentRun, RunComparison } from '../types';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
@@ -40,12 +42,21 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
   onExport,
 }) => {
   const [collapsedComparisons, setCollapsedComparisons] = useState<Record<string, boolean>>({});
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
 
   const toggleComparison = (comparisonId: string) => {
     setCollapsedComparisons(prev => ({
       ...prev,
       [comparisonId]: !prev[comparisonId]
     }));
+  };
+
+  const handleCopyPrompt = () => {
+    const finalPrompt = experiment.runs.length > 0 ? experiment.runs[experiment.runs.length - 1].prompt : '';
+    navigator.clipboard.writeText(finalPrompt).then(() => {
+      setCopiedPrompt(true);
+      setTimeout(() => setCopiedPrompt(false), 2000);
+    });
   };
 
   // Generate human-readable report for export
@@ -83,14 +94,34 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
 
     const comparisons = generateComparisonsForReport();
     
+    // Get the final prompt from the most recent run
+    const finalPrompt = experiment.runs.length > 0 ? experiment.runs[experiment.runs.length - 1].prompt : '';
+    const finalRun = experiment.runs.length > 0 ? experiment.runs[experiment.runs.length - 1] : null;
+    
     let report = `# ${experiment.title || 'Untitled Experiment'}
 
 ## Experiment Overview
 
 **Title:** ${experiment.title || 'Untitled'}
-**Date:** ${new Date(experiment.timestamp).toLocaleDateString()}
+**Objective:** ${experiment.hypothesis || experiment.objective || 'Not specified'}
 **Total Runs:** ${experiment.runs.length}
-**Objective:** ${experiment.hypothesis || experiment.objective || 'Not specified'}`;
+**Date:** ${new Date(experiment.timestamp).toLocaleDateString()}
+${finalRun?.uploadedFiles?.length ? `**File Attached:** ${finalRun.uploadedFiles[0].name}`: ''}
+
+## Final Prompt (Run ${experiment.runs.length})
+
+${finalPrompt.split('\n\n').map(section => {
+  if (!section.trim()) return '';
+  const colonIndex = section.indexOf(':');
+  if (colonIndex === -1) return section;
+  const title = section.substring(0, colonIndex + 1);
+  const content = section.substring(colonIndex + 1).trim();
+  return `**${title}**\n${content}`;
+}).join('\n\n')}
+
+**Copy the prompt above to use in your production environment.**
+
+---`;
 
         // Add Insights & Recommendations
     if (experiment.analysis?.insights && experiment.analysis.insights.length > 0) {
@@ -106,8 +137,17 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
         report += `**Run ${comparison.run1Index} Output:**\n\`\`\`\n${comparison.run1.output || 'No output'}\n\`\`\`\n\n`;
         report += `**Run ${comparison.run2Index} Output:**\n\`\`\`\n${comparison.run2.output || 'No output'}\n\`\`\`\n\n`;
         report += `**Prompt Differences:**\n\n`;
-        report += `Run ${comparison.run1Index} Prompt:\n\`\`\`\n${comparison.run1.prompt}\n\`\`\`\n\n`;
-        report += `Run ${comparison.run2Index} Prompt:\n\`\`\`\n${comparison.run2.prompt}\n\`\`\`\n\n`;
+        
+        const differentComponents = getDifferentComponents(comparison.run1.prompt, comparison.run2.prompt);
+        if (differentComponents.length > 0) {
+          differentComponents.forEach(diff => {
+            report += `**${diff.component}**\n\n`;
+            report += `Run ${comparison.run1Index}:\n\`\`\`\n${diff.run1Content}\n\`\`\`\n\n`;
+            report += `Run ${comparison.run2Index}:\n\`\`\`\n${diff.run2Content}\n\`\`\`\n\n`;
+          });
+        } else {
+          report += `No differences found in prompt components.\n\n`;
+        }
         
         if (comparison.existingComparison?.notes) {
           report += `**Comparison Notes:**\n${comparison.existingComparison.notes}\n\n`;
@@ -248,10 +288,15 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
       const content2 = map2.get(key) || '';
       
       if (content1 !== content2) {
+        // Extract component name without colon and get content without the title line
+        const componentName = key.replace(':', '').trim();
+        const content1WithoutTitle = content1.split('\n').slice(1).join('\n').trim();
+        const content2WithoutTitle = content2.split('\n').slice(1).join('\n').trim();
+        
         differentComponents.push({
-          component: key,
-          run1Content: content1,
-          run2Content: content2
+          component: componentName,
+          run1Content: content1WithoutTitle,
+          run2Content: content2WithoutTitle
         });
       }
     });
@@ -273,7 +318,7 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-weave-light-border dark:border-weave-dark-border">
             <div className="flex items-center space-x-3">
-              <BookOpen className="h-6 w-6 text-weave-light-accent dark:text-weave-dark-accent" />
+              <NotebookText className="h-6 w-6 text-weave-light-accent dark:text-weave-dark-accent" />
               <h2 className="text-xl font-semibold text-weave-light-primary dark:text-weave-dark-primary">
                 {experiment.title || 'Untitled Experiment'}
               </h2>
@@ -289,42 +334,86 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
           {/* Content */}
           <div className="p-6 space-y-6">
             {/* Experiment Overview */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-weave-light-primary dark:text-weave-dark-primary">
+            <div>
+              <h3 className="block text-base font-semibold text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
                 Experiment Overview
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p><strong>Title:</strong> {experiment.title || 'Untitled'}</p>
-                  <p><strong>Date:</strong> {new Date(experiment.timestamp).toLocaleDateString()}</p>
-                  <p><strong>Total Runs:</strong> {experiment.runs.length}</p>
+              <div className="w-full px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText text-sm leading-relaxed space-y-2">
+                <p><strong>Title:</strong> {experiment.title || 'Untitled'}</p>
+                <p><strong>Objective:</strong> {experiment.hypothesis || experiment.objective || 'Not specified'}</p>
+                <p><strong>Total Runs:</strong> {experiment.runs.length}</p>
+                <p><strong>Date:</strong> {new Date(experiment.timestamp).toLocaleDateString()}</p>
+              </div>
+            </div>
+
+            {/* Final Prompt */}
+            {experiment.runs.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="block text-base font-semibold text-weave-light-secondary dark:text-weave-dark-secondary">
+                    Final Prompt (Run {experiment.runs.length})
+                  </h3>
+                  <button
+                    onClick={handleCopyPrompt}
+                    className={`flex items-center space-x-2 px-3 py-1 rounded-lg transition-all duration-200 focus:outline-none ${
+                      copiedPrompt
+                        ? 'bg-green-500 text-white shadow-lg'
+                        : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:shadow-lg hover:scale-105 text-gray-600 dark:text-gray-300'
+                    }`}
+                  >
+                    {copiedPrompt ? (
+                      <CheckCheck className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                    
+                  </button>
                 </div>
-                <div>
-                  <p><strong>Objective:</strong> {experiment.hypothesis || experiment.objective || 'Not specified'}</p>
+                <div className="w-full px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText text-sm leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto">
+                  {experiment.runs[experiment.runs.length - 1].prompt.split('\n\n').map((section, index) => {
+                    if (!section.trim() || section.includes('[PDF STUDY REPORT:')) return null;
+                    
+                    const colonIndex = section.indexOf(':');
+                    if (colonIndex === -1) return <div key={index} className="mb-2">{section}</div>;
+                    
+                    const title = section.substring(0, colonIndex + 1);
+                    const content = section.substring(colonIndex + 1).trim();
+                    
+                    return (
+                      <div key={index} className="mb-3">
+                        <span className="font-bold text-weave-light-primary dark:text-weave-dark-primary">
+                          {title}
+                        </span>
+                        <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                          {content}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-              
-              {/* Insights & Recommendations */}
-              {experiment.analysis?.insights && experiment.analysis.insights.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="font-medium text-weave-light-primary dark:text-weave-dark-primary mb-2">
-                    Insights & Recommendations
-                  </h4>
-                  <ul className="text-sm text-weave-light-secondary dark:text-weave-dark-secondary space-y-1">
-                    {experiment.analysis.insights.map((insight, index) => (
-                      <li key={index} className="flex items-start">
-                        <span className="mr-2">•</span>
-                        <span>{insight}</span>
-                      </li>
-                    ))}
-                  </ul>
+            )}
+            
+            {/* Insights & Recommendations */}
+            {experiment.analysis?.insights && experiment.analysis.insights.length > 0 && (
+              <div>
+                <h3 className="block text-base font-semibold text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
+                  Insights & Recommendations
+                </h3>
+                <div className="w-full px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText text-sm leading-relaxed space-y-2">
+                  {experiment.analysis.insights.map((insight, index) => (
+                    <div key={index} className="flex items-start">
+                      <span className="mr-2">•</span>
+                      <span>{insight}</span>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Comparisons */}
             <div className="space-y-6">
-              <h3 className="text-lg font-medium text-weave-light-primary dark:text-weave-dark-primary">
+              <h3 className="block text-base font-semibold text-weave-light-secondary dark:text-weave-dark-secondary mb-2">
                 Comparisons ({comparisons.length})
               </h3>
               
@@ -349,7 +438,7 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
                               <ChevronDown className="h-4 w-4" />
                             )}
                           </button>
-                          <h4 className="text-lg font-medium text-weave-light-primary dark:text-weave-dark-primary">
+                          <h4 className="text-base font-semibold text-weave-light-secondary dark:text-weave-dark-secondary">
                             Run {comparison.run1Index} vs Run {comparison.run2Index}
                           </h4>
                         </div>
@@ -366,17 +455,17 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Left Pane - Run 1 */}
                             <div className="space-y-3">
-                              <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                  <h5 className="text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary">
-                                    Run {comparison.run1Index}
-                                  </h5>
-                                  <div className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary">
-                                    {new Date(comparison.run1.timestamp).toLocaleString()}
-                                  </div>
+                              <div className="flex items-center justify-between mb-2">
+                                <h5 className="text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary">
+                                  Run {comparison.run1Index}
+                                </h5>
+                                <div className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary">
+                                  {new Date(comparison.run1.timestamp).toLocaleString()}
                                 </div>
+                              </div>
+                              <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-4">
                                 <div className="h-64 overflow-y-auto">
-                                  <div className="text-sm font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words">
+                                  <div className="text-sm leading-relaxed text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words font-sans">
                                     {comparison.run1.output || 'No output'}
                                   </div>
                                 </div>
@@ -385,17 +474,17 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
 
                             {/* Right Pane - Run 2 */}
                             <div className="space-y-3">
-                              <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                  <h5 className="text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary">
-                                    Run {comparison.run2Index}
-                                  </h5>
-                                  <div className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary">
-                                    {new Date(comparison.run2.timestamp).toLocaleString()}
-                                  </div>
+                              <div className="flex items-center justify-between mb-2">
+                                <h5 className="text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary">
+                                  Run {comparison.run2Index}
+                                </h5>
+                                <div className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary">
+                                  {new Date(comparison.run2.timestamp).toLocaleString()}
                                 </div>
+                              </div>
+                              <div className="bg-weave-light-inputBg dark:bg-weave-dark-inputBg border border-weave-light-border dark:border-weave-dark-border rounded-lg p-4">
                                 <div className="h-64 overflow-y-auto">
-                                  <div className="text-sm font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words">
+                                  <div className="text-sm leading-relaxed text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words font-sans">
                                     {comparison.run2.output || 'No output'}
                                   </div>
                                 </div>
@@ -412,31 +501,36 @@ const DetailedExperimentView: React.FC<DetailedExperimentViewProps> = ({
                               const differentComponents = getDifferentComponents(comparison.run1.prompt, comparison.run2.prompt);
                               return differentComponents.length > 0 ? (
                                 <div className="space-y-4">
-                                  {differentComponents.map((diff, index) => (
-                                    <div key={index} className="space-y-3">
-                                      <h6 className="text-sm font-medium text-weave-light-primary dark:text-weave-dark-primary mb-2">
-                                        {diff.component}
-                                      </h6>
-                                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                        <div>
-                                          <p className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary mb-1">Run {comparison.run1Index}:</p>
-                                          <div className="p-2 border border-weave-light-border dark:border-weave-dark-border rounded max-h-24 overflow-y-auto">
-                                            <pre className="text-xs font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words">
+                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                    <div>
+                                      <div className="w-full h-48 px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText text-sm leading-relaxed whitespace-pre-wrap break-words overflow-y-auto">
+                                        {differentComponents.map((diff, index) => (
+                                          <div key={index}>
+                                            <span className="font-bold text-weave-light-primary dark:text-weave-dark-primary">
+                                              {diff.component}:
+                                            </span>
+                                            <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap mt-1 mb-3">
                                               {diff.run1Content}
-                                            </pre>
+                                            </div>
                                           </div>
-                                        </div>
-                                        <div>
-                                          <p className="text-xs text-weave-light-secondary dark:text-weave-dark-secondary mb-1">Run {comparison.run2Index}:</p>
-                                          <div className="p-2 border border-weave-light-border dark:border-weave-dark-border rounded max-h-24 overflow-y-auto">
-                                            <pre className="text-xs font-mono text-weave-light-inputText dark:text-weave-dark-inputText whitespace-pre-wrap break-words">
-                                              {diff.run2Content}
-                                            </pre>
-                                          </div>
-                                        </div>
+                                        ))}
                                       </div>
                                     </div>
-                                  ))}
+                                    <div>
+                                      <div className="w-full h-48 px-3 py-2 border border-weave-light-border dark:border-weave-dark-border rounded-lg bg-weave-light-inputBg dark:bg-weave-dark-inputBg text-weave-light-inputText dark:text-weave-dark-inputText text-sm leading-relaxed whitespace-pre-wrap break-words overflow-y-auto">
+                                        {differentComponents.map((diff, index) => (
+                                          <div key={index}>
+                                            <span className="font-bold text-weave-light-primary dark:text-weave-dark-primary">
+                                              {diff.component}:
+                                            </span>
+                                            <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap mt-1 mb-3">
+                                              {diff.run2Content}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="text-center py-4 text-weave-light-secondary dark:text-weave-dark-secondary">
@@ -548,7 +642,7 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <BookOpen className="h-6 w-6 text-weave-light-accent dark:text-weave-dark-accent" />
+          <NotebookText className="h-6 w-6 text-weave-light-accent dark:text-weave-dark-accent" />
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Lab Notebook</h2>
         </div>
         <div className="flex items-center space-x-2">
@@ -587,14 +681,14 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
         />
-        <BookOpen className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <NotebookText className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
       </div>
 
       {/* Experiments */}
       <div className="space-y-4">
         {filteredExperiments.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+            <NotebookText className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
             <p>{searchTerm ? 'No experiments found matching your search.' : 'No experiments yet. Run your first experiment to see it here!'}</p>
           </div>
         ) : (
@@ -638,17 +732,7 @@ export const LabNotebook: React.FC<LabNotebookProps> = ({
 
                 {/* Action Buttons */}
                 <div className="flex items-center space-x-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedExperiment(experiment);
-                      setShowDetailedView(true);
-                    }}
-                    className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
-                    title="View experiment details"
-                  >
-                    <FileText className="h-4 w-4" />
-                  </button>
+                  
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
